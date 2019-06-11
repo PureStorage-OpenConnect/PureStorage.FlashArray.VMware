@@ -246,7 +246,7 @@ function get-pfaVolfromRDM {
       }
       throw "Specified RDM was not found on the passed in FlashArrays."
 }
-function get-pfaConnectionlfromRDM {
+function get-pfaConnectionfromRDM {
   <#
   .SYNOPSIS
     Retrieves the FlashArray connection of a volume that hosts a RDM disk.

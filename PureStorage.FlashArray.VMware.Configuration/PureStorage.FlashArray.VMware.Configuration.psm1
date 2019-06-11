@@ -246,6 +246,53 @@ else
 $Global:CurrentFlashArray = $null
 throw "The datastore was not found on any of the FlashArray connections."
 }
+function get-pfaConnectionFromArrayId {
+  <#
+  .SYNOPSIS
+    Retrieves the FlashArray connection from the specified array ID.
+  .DESCRIPTION
+    Retrieves the FlashArray connection from the specified array ID.
+  .INPUTS
+    FlashArray array ID/serial
+  .OUTPUTS
+    FlashArray connection.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  06/10/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+      [Parameter(Position=0,ValueFromPipeline=$True)]
+      [PurePowerShell.PureArray[]]$flasharrays,
+
+      [Parameter(Position=1,mandatory=$true)]
+      [string]$arrayId
+  )
+  if ($null -eq $flasharrays)
+  {
+      $flasharrays = getAllFlashArrays 
+  }
+  foreach ($flasharray in $flasharrays)
+  {
+      $returnedID = (Get-PfaArrayAttributes -Array $flasharray).id
+      if ($returnedID.ToLower() -eq $arrayId.ToLower())
+      {
+          return $flasharray
+      }
+  }
+  throw "FlashArray connection not found for serial $($arrayId)"
+}
 function new-pfaRestSession {
      <#
     .SYNOPSIS
