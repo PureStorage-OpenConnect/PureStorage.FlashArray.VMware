@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.VVol.psd1
-	 Version:		1.0.0.1
+	 Version:		1.1.0.0
 	 Copyright:		2019 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStoragePowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.VVol.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.0.0.1'
+	ModuleVersion = '1.1.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '105e97db-98b4-41be-be35-17ba25a1ede5'
@@ -64,7 +64,7 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.1.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -83,7 +83,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'update-pfaVvolVmVolumeGroup','get-vvolUuidFromHardDisk','get-pfaVolumeNameFromVvolUuid','get-pfaSnapshotsFromVvolHardDisk','copy-pfaVvolVmdkToNewVvolVmdk','copy-pfaSnapshotToExistingVvolVmdk','copy-pfaSnapshotToNewVvolVmdk','copy-pfaVvolVmdkToExistingVvolVmdk','new-pfaSnapshotOfVvolVmdk','get-vmdkFromWindowsDisk'
+	FunctionsToExport = 'Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromHardDisk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotsFromVvolHardDisk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -92,7 +92,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'update-faVvolVmVolumeGroup','get-faSnapshotsFromVvolHardDisk','copy-faVvolVmdkToNewVvolVmdk','copy-faSnapshotToExistingVvolVmdk','copy-faSnapshotToNewVvolVmdk','copy-faVvolVmdkToExistingVvolVmdk','new-faSnapshotOfVvolVmdk','get-faVolumeNameFromVvolUuid'
+	AliasesToExport = 'update-faVvolVmVolumeGroup','Get-faSnapshotsFromVvolHardDisk','Copy-faVvolVmdkToNewVvolVmdk','Copy-faSnapshotToExistingVvolVmdk','Copy-faSnapshotToNewVvolVmdk','Copy-faVvolVmdkToExistingVvolVmdk','new-faSnapshotOfVvolVmdk','Get-faVolumeNameFromVvolUuid'
 	
 	# List of all modules packaged with this module
 	ModuleList = @()

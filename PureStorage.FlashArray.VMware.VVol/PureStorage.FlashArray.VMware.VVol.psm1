@@ -1,4 +1,4 @@
-function update-pfaVvolVmVolumeGroup {
+function Update-PfaVvolVmVolumeGroup {
     <#
     .SYNOPSIS
       Updates the volume group on a FlashArray for a VVol-based VM.
@@ -39,11 +39,11 @@ function update-pfaVvolVmVolumeGroup {
     {
         if ($null -eq $flasharray)
         {
-            $fa = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+            $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
         }
         else 
         {
-            $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
+            $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
         }
         if ($datastore.Type -ne "VVOL")
         {
@@ -90,13 +90,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             {
                 if ($null -eq $flasharray)
                 {
-                    $fa = get-pfaConnectionOfDatastore -datastore $vmDatastore -ErrorAction Stop
+                    $fa = get-PfaConnectionOfDatastore -datastore $vmDatastore -ErrorAction Stop
                 }
                 else 
                 {
-                    $fa = get-pfaConnectionOfDatastore -datastore $vmDatastore -flasharrays $flasharray -ErrorAction Stop
+                    $fa = get-PfaConnectionOfDatastore -datastore $vmDatastore -flasharrays $flasharray -ErrorAction Stop
                 }
-                $faSession = new-pfaRestSession -flasharray $fa
+                $faSession = new-PfaRestSession -flasharray $fa
                 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
                 $volumeConfig =  Invoke-RestMethod -Method Get -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/volume?tags=true&filter=value='${configUUID}'" -WebSession $faSession -ErrorAction Stop
@@ -146,13 +146,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
                 }
                 $volumesVmId = Invoke-RestMethod -Method Get -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vmId}'" -WebSession $faSession -ErrorAction Stop
                 $volumeFinalNames += $volumesVmId |where-object {$_.key -eq "VMW_VmID"}
-                remove-pfaRestSession -flasharray $fa -faSession $faSession |Out-Null
+                remove-PfaRestSession -flasharray $fa -faSession $faSession |Out-Null
             }
         }
     }
     return $volumeFinalNames.name
 }
-function get-vvolUuidFromHardDisk {
+function Get-VvolUuidFromHardDisk {
     <#
     .SYNOPSIS
       Gets the VVol UUID of a virtual disk
@@ -203,7 +203,7 @@ function get-vvolUuidFromHardDisk {
     }
 
 }
-function get-pfaVolumeNameFromVvolUuid{
+function Get-PfaVolumeNameFromVvolUuid{
   <#
   .SYNOPSIS
     Connects to vCenter and FlashArray to return the FA volume that is a VVol virtual disk.
@@ -254,7 +254,7 @@ function get-pfaVolumeNameFromVvolUuid{
       }
       foreach ($fa in $flasharray)
       {
-          $faSession = new-pfaRestSession -flasharray $fa 
+          $faSession = new-PfaRestSession -flasharray $fa 
           $purevip = $fa.EndPoint
           #Pull tags that match the volume with that UUID
           try {
@@ -275,7 +275,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
           [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
           $volumeTags = Invoke-RestMethod -Method Get -Uri "https://$($purevip)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vvolUUID}'" -WebSession $faSession -ErrorAction Stop
           $volumeName = $volumeTags |where-object {$_.key -eq "PURE_VVOL_ID"}
-          remove-pfaRestSession -faSession $faSession -flasharray $fa
+          remove-PfaRestSession -faSession $faSession -flasharray $fa
           if ($null -ne $volumeName)
           {
             $Global:CurrentFlashArray = $null
@@ -296,7 +296,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
       }
   }
 }
-function get-pfaSnapshotsFromVvolHardDisk {
+function Get-PfaSnapshotsFromVvolHardDisk {
     <#
     .SYNOPSIS
       Returns all of the FlashArray snapshot names of a given hard disk
@@ -332,16 +332,16 @@ function get-pfaSnapshotsFromVvolHardDisk {
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
     }
     else 
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
-    $faSession = new-pfaRestSession -flasharray $fa 
+    $faSession = new-PfaRestSession -flasharray $fa 
     $purevip = $fa.EndPoint
     $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk
-    $faVolume = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
+    $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
     $volumeSnaps = Invoke-RestMethod -Method Get -Uri "https://${purevip}/api/$($fa.apiversion)/volume/${faVolume}?snap=true" -WebSession $faSession -ErrorAction Stop
     $snapNames = @()
     foreach ($volumeSnap in $volumeSnaps)
@@ -350,7 +350,7 @@ function get-pfaSnapshotsFromVvolHardDisk {
     }
     return $snapNames
 }
-function copy-pfaVvolVmdkToNewVvolVmdk {
+function Copy-PfaVvolVmdkToNewVvolVmdk {
     <#
     .SYNOPSIS
       Takes an existing VVol-based virtual disk and creates a new VVol virtual disk from it.
@@ -389,21 +389,21 @@ function copy-pfaVvolVmdkToNewVvolVmdk {
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
     }
     else 
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
     $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk 
-    $faVolume = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
+    $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityGB $vmdk.CapacityGB -VM $targetVm 
     $newVvolUuid = get-vvolUuidFromHardDisk -vmdk $newHardDisk 
-    $newFaVolume = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid 
+    $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid 
     New-PfaVolume -Array $fa -Source $faVolume -Overwrite -VolumeName $newFaVolume  |Out-Null
     return $newHardDisk
 }
-function copy-pfaSnapshotToExistingVvolVmdk {
+function Copy-PfaSnapshotToExistingVvolVmdk {
     <#
     .SYNOPSIS
       Takes an snapshot and creates a new VVol virtual disk from it.
@@ -442,14 +442,14 @@ function copy-pfaSnapshotToExistingVvolVmdk {
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
     }
     else 
     {
-        $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
+        $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
     $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk 
-    $faVolume = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
+    $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
     $foundSnap = Get-PfaVolumeSnapshot -Array $fa -SnapshotName $snapshotName
     if ($null -eq $foundSnap)
     {
@@ -470,7 +470,7 @@ function copy-pfaSnapshotToExistingVvolVmdk {
     } 
     return $vmdk    
 }
-function copy-pfaSnapshotToNewVvolVmdk {
+function Copy-PfaSnapshotToNewVvolVmdk {
     <#
     .SYNOPSIS
       Takes an snapshot and overwrites an existing VVol virtual disk from it.
@@ -515,7 +515,7 @@ function copy-pfaSnapshotToNewVvolVmdk {
         {
             throw "This is not a VVol datastore."
         }
-        $flasharray = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+        $flasharray = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
     }
     elseif (($null -eq $flasharray) -and ($null -eq $datastore))
     {
@@ -536,11 +536,11 @@ function copy-pfaSnapshotToNewVvolVmdk {
     $snapshotSize = Get-PfaSnapshotSpaceMetrics -Array $flasharray -Name $snapshotName -ErrorAction Stop
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityKB ($snapshotSize.size / 1024 ) -VM $targetVm 
     $newVvolUuid = get-vvolUuidFromHardDisk -vmdk $newHardDisk 
-    $newFaVolume = get-pfaVolumeNameFromVvolUuid -flasharray $flasharray -vvolUUID $newVvolUuid 
+    $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $flasharray -vvolUUID $newVvolUuid 
     New-PfaVolume -Array $flasharray -Source $snapshotName -Overwrite -VolumeName $newFaVolume  |Out-Null
     return $newHardDisk      
 }
-function copy-pfaVvolVmdkToExistingVvolVmdk {
+function Copy-PfaVvolVmdkToExistingVvolVmdk {
     <#
     .SYNOPSIS
       Takes an virtual disk and refreshes an existing VVol virtual disk from it.
@@ -594,18 +594,18 @@ function copy-pfaVvolVmdkToExistingVvolVmdk {
     }
     if ($null -eq $flasharray)
     {
-        $targetFlasharray = get-pfaConnectionOfDatastore -datastore $targetDatastore -ErrorAction Stop
+        $targetFlasharray = get-PfaConnectionOfDatastore -datastore $targetDatastore -ErrorAction Stop
     }
     else 
     {
-        $targetFlasharray = get-pfaConnectionOfDatastore -datastore $targetDatastore -flasharrays $flasharray -ErrorAction Stop
+        $targetFlasharray = get-PfaConnectionOfDatastore -datastore $targetDatastore -flasharrays $flasharray -ErrorAction Stop
     } 
     if ($sourceDatastore.ExtensionData.info.vvolDS.storageArray[0].uuid -eq $targetDatastore.ExtensionData.info.vvolDS.storageArray[0].uuid)
     {
         $vvolUuid = get-vvolUuidFromHardDisk -vmdk $sourceVmdk 
-        $sourceFaVolume = get-pfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid 
+        $sourceFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid 
         $vvolUuid = get-vvolUuidFromHardDisk -vmdk $targetVmdk 
-        $targetFaVolume = get-pfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid
+        $targetFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid
         if ($targetVmdk.CapacityKB -eq $sourceVmdk.CapacityKB)
         {
             New-PfaVolume -Array $targetFlasharray -Source $sourceFaVolume -Overwrite -VolumeName $targetFaVolume |Out-Null
@@ -623,7 +623,7 @@ function copy-pfaVvolVmdkToExistingVvolVmdk {
     }
     return $targetVmdk
 }
-function new-pfaSnapshotOfVvolVmdk {
+function New-PfaSnapshotOfVvolVmdk {
     <#
     .SYNOPSIS
       Takes a VVol virtual disk and creates a FlashArray snapshot.
@@ -668,14 +668,14 @@ function new-pfaSnapshotOfVvolVmdk {
           $datastore = $vmdkDisk |get-datastore
           if ($null -eq $flasharray)
           {
-              $fa = get-pfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+              $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
           }
           else 
           {
-              $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
+              $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
           }
           $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdkDisk -ErrorAction Stop
-          $faVolume = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid -ErrorAction Stop
+          $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid -ErrorAction Stop
           if (($null -eq $suffix) -or ($suffix -eq ""))
           {
               $snapshot = New-PfaVolumeSnapshots -Array $fa -Sources $faVolume -ErrorAction Stop
@@ -691,8 +691,7 @@ function new-pfaSnapshotOfVvolVmdk {
         return $allSnaps.name
     } 
 }
-
-function get-vmdkFromWindowsDisk {
+function Get-VmdkFromWindowsDisk {
     <#
     .SYNOPSIS
       Returns the VM disk object that corresponds to a given Windows file system
@@ -809,11 +808,249 @@ function get-vmdkFromWindowsDisk {
     }
   }  
 }
+function New-PfaVasaProvider {
+  <#
+  .SYNOPSIS
+    Registers FlashArray VASA Providers with a vCenter.
+  .DESCRIPTION
+    Registers VASA Providers of one or more FlashArrays with a vCenter.
+  .INPUTS
+    FlashArray connection(s) and credentials.
+  .OUTPUTS
+    Returns the VASA Providers
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ new-PfaVasaProvider -flasharray $Global:AllFlashArrays[0] -credentials (get-credential)
 
+    Connects to a FlashArray and then registers both of its VASA providers with a vCenter while passing in VASA credentials non-interactively.
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-x70-2.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ New-PfaVasaProvider -flasharray $Global:AllFlashArrays -credentials (get-credential)
+
+    Connects to two FlashArrays and then registers both VASA providers for each FlashArray with a vCenter while passing in VASA credentials non-interactively.
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ New-PfaVasaProvider -flasharray $Global:AllFlashArrays[0]
+
+    Connects to a FlashArray and then registers both of its VASA providers with a vCenter. VASA credentials will be asked for interactively.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  06/22/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [PurePowerShell.PureArray[]]$flasharray,
+
+          [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
+          [System.Management.Automation.PSCredential]$credentials,
+
+          [Parameter(Position=2)]
+          [switch]$allFlashArrays
+  )
+  $powerCLIVersionCheck = (Get-Module -name VMware.PowerCLI -ListAvailable).Version |Where-Object {($_.Major -ge 11) -and ($_.Minor -ge 3)}
+  if ($null -eq $powerCLIVersionCheck)
+  {
+      throw "You must be running PowerCLI 11.3.0 or later for this cmdlet to work. Please run update-module VMware.PowerCLI or update manually."
+  }
+  if (($null -ne $flasharray) -and ($allFlashArrays -eq $true))
+  {
+      throw "Please either set allFlashArrays to true or pass in connections in the FlashArray parameter, not both."
+  }
+  if ($null -eq $flasharray)
+  {
+      if ($allFlashArrays -ne $True)
+      {
+          $fa = $Global:DefaultFlashArray
+      }
+      elseif ($allFlashArrays -eq $True) 
+      {
+          $fa = getAllFlashArrays
+      }  
+  }
+  else {
+      $fa = $flasharray
+  }
+  if ($null -eq $fa)
+  {
+      throw "No FlashArray connections found. Please authenticate one or more FlashArrays."
+  }
+  $vasaProviders = @()
+  foreach ($faConnection in $fa) 
+  {
+      $mgmtIPs = Get-PfaNetworkInterfaces -Array $faConnection | where-object {$_.name -like "*eth0"}
+      $arrayname = Get-PfaArrayAttributes -array $faConnection
+      $ctnum = 0
+      foreach ($mgmtIP in $mgmtIPs)
+      {
+          $vasaRegistered = $false
+          do 
+          {
+            try 
+            {
+                $vasaProviders += New-VasaProvider -Name ("$($arrayname.array_name)-CT$($ctnum)") -Credential $credentials -Url ("https://$($mgmtIP.address):8084") -force -ErrorAction Stop
+                $vasaRegistered = $True
+            }
+            catch 
+            {
+                if ($_.Exception -like "*credentials for the VASA*are incorrect*")
+                {
+                  Write-Error -Message "The provided credentials for the VASA providers on $($arrayname.array_name) are incorrect. Please provide correct ones."
+                  $credentials = $Host.ui.PromptForCredential("Error: Incorrect FlashArray VASA Credentials", "Please enter your $($arrayname.array_name) VASA username and password.", "","")
+                  if ($null -eq $credentials)
+                  {
+                      throw "Array registration canceled."
+                  }
+                }
+                elseif ($_.Exception -like "*The VASA provider at URL*is already registered*") 
+                {
+                  Write-Warning -Message "The VASA provider for $($arrayname.array_name) controller $($ctnum) is already registered."
+                  $vasaRegistered = $True
+                }
+                else 
+                {
+                  throw $_.Exception
+                }
+            }
+          }
+          while ($vasaRegistered -ne $true)
+          $ctnum++
+      }
+  }
+  return $vasaProviders
+}
+function Get-PfaVasaProvider {
+  <#
+  .SYNOPSIS
+    Returns the active VASA Provider for a given FlashArray from a vCenter.
+  .DESCRIPTION
+    Returns the active VASA Provider for a given FlashArray from a vCenter.
+  .INPUTS
+    FlashArray connection
+  .OUTPUTS
+    Returns the VASA Provider
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ Get-PfaVasaProvider -flasharray $Global:AllFlashArrays[0]
+
+    Connect to a FlashArray and return the current active VASA Provider for that FlashArray.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  06/28/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+          [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
+          [PurePowerShell.PureArray]$flasharray
+      )
+      $faID = "com.purestorage:" + (Get-PfaArrayAttributes -Array $flasharray).id
+      $providers = Get-VasaProvider |Where-Object {$_.Namespace -eq "com.purestorage"}
+      foreach ($provider in $providers)
+      {
+        $vasaArray = $null
+        $vasaArray = $provider |Get-VasaStorageArray |where-object {$_.Id -eq $faID}
+        if ($null -ne $vasaArray)
+        {
+          $vasaProvider = $provider
+          break
+        }
+      }
+      if ($null -ne $vasaProvider)
+      {
+          return $vasaProvider
+      }
+      else 
+      {
+        throw "No registered VASA provider found for this array."
+      }
+}
+function Remove-PfaVasaProvider {
+  <#
+  .SYNOPSIS
+    Removes a FlashArrays VASA Providers from a vCenter.
+  .DESCRIPTION
+    Removes both VASA Providers from a vCenter for a specified FlashArray.
+  .INPUTS
+    FlashArray connection(s) and credentials.
+  .OUTPUTS
+    Returns the VASA Providers
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ Remove-PfaVasaProvider -flasharray $Global:AllFlashArrays[0]
+
+    Connect to FlashArray and then remove all VASA providers for that FlashArray from vCenter and interactively confirm their removal.
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
+    PS C:\ Remove-PfaVasaProvider -flasharray $Global:AllFlashArrays[0] -Confirm:$false
+
+    Connect to FlashArray and then remove all VASA providers for a given FlashArray without additional confirmation prompts.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  07/08/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+  Param(
+          [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
+          [PurePowerShell.PureArray]$flasharray
+      )
+      $moreProviders = $true
+      $vasaProvider = $null
+      while ($moreProviders -eq $true)
+      {
+          if ($null -eq $vasaProvider)
+          {
+            $vasaProvider = $flasharray | get-PfaVasaProvider -ErrorAction Stop
+          }
+          if ($PSCmdlet.ShouldProcess($($vasaProvider).name,"Unregister FlashArray VASA Provider")) 
+          {
+            Remove-VasaProvider -Provider $vasaProvider -Confirm:$false
+          }
+          $vasaProvider = $null
+          $vasaProvider = $flasharray | get-PfaVasaProvider -ErrorAction SilentlyContinue
+          if ($null -eq $vasaProvider)
+          {
+            $moreProviders = $false
+          }
+      }
+}
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
     {
-        throw "You must pass in a FlashArray connection or create a default FlashArray connection with new-pfaconnection"
+        throw "You must pass in a FlashArray connection or create a default FlashArray connection with new-Pfaconnection"
     }
     else 
     {
@@ -827,14 +1064,14 @@ function getAllFlashArrays {
   }
   else
   {
-      throw "Please either pass in one or more FlashArray connections or create connections via the new-pfaConnection cmdlet."
+      throw "Please either pass in one or more FlashArray connections or create connections via the new-PfaConnection cmdlet."
   }
 }
-New-Alias -Name update-faVvolVmVolumeGroup -Value update-pfaVvolVmVolumeGroup
-New-Alias -Name get-faSnapshotsFromVvolHardDisk -Value get-pfaSnapshotsFromVvolHardDisk
-New-Alias -Name copy-faVvolVmdkToNewVvolVmdk -Value copy-pfaVvolVmdkToNewVvolVmdk
-New-Alias -Name copy-faSnapshotToExistingVvolVmdk -Value copy-pfaSnapshotToExistingVvolVmdk
-New-Alias -Name copy-faSnapshotToNewVvolVmdk -Value copy-pfaSnapshotToNewVvolVmdk
-New-Alias -Name copy-faVvolVmdkToExistingVvolVmdk -Value copy-pfaVvolVmdkToExistingVvolVmdk
-New-Alias -Name new-faSnapshotOfVvolVmdk -Value new-pfaSnapshotOfVvolVmdk
-New-Alias -Name get-faVolumeNameFromVvolUuid -Value get-pfaVolumeNameFromVvolUuid
+New-Alias -Name update-faVvolVmVolumeGroup -Value update-PfaVvolVmVolumeGroup
+New-Alias -Name get-faSnapshotsFromVvolHardDisk -Value get-PfaSnapshotsFromVvolHardDisk
+New-Alias -Name copy-faVvolVmdkToNewVvolVmdk -Value copy-PfaVvolVmdkToNewVvolVmdk
+New-Alias -Name copy-faSnapshotToExistingVvolVmdk -Value copy-PfaSnapshotToExistingVvolVmdk
+New-Alias -Name copy-faSnapshotToNewVvolVmdk -Value copy-PfaSnapshotToNewVvolVmdk
+New-Alias -Name copy-faVvolVmdkToExistingVvolVmdk -Value copy-PfaVvolVmdkToExistingVvolVmdk
+New-Alias -Name new-faSnapshotOfVvolVmdk -Value new-PfaSnapshotOfVvolVmdk
+New-Alias -Name get-faVolumeNameFromVvolUuid -Value get-PfaVolumeNameFromVvolUuid
