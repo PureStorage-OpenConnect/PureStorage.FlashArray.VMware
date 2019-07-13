@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Configuration.psd1
-	 Version:		1.1.0.0
+	 Version:		1.2.0.0
 	 Copyright:		2019 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStoragePowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Configuration.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.1.0.0'
+	ModuleVersion = '1.2.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '8f427302-6faf-42de-9f58-09276c3343cb'
@@ -82,7 +82,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'new-pfaConnection','get-pfaDatastore','get-pfaConnectionOfDatastore','new-pfaRestSession','remove-pfaRestSession','new-pfaHostFromVmHost','get-pfaHostFromVmHost','get-pfaHostGroupfromVcCluster','new-pfaHostGroupfromVcCluster','set-vmHostPfaiSCSI','set-clusterPfaiSCSI','get-pfaConnectionFromArrayId'
+	FunctionsToExport = 'New-PfaConnection','Get-PfaDatastore','Get-PfaConnectionOfDatastore','New-PfaRestSession','Remove-PfaRestSession','New-PfaHostFromVmHost','Get-PfaHostFromVmHost','Get-PfaHostGroupfromVcCluster','New-PfaHostGroupfromVcCluster','Set-VmHostPfaiSCSI','Set-ClusterPfaiSCSI','get-PfaConnectionFromArrayId','Install-PfavSpherePlugin','Get-PfavSpherePlugin'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
