@@ -1287,15 +1287,6 @@ function Mount-PfaVvolDatastore {
         }
         $foundDatastore = $null
       }
-      $hostMounts = $datastore.ExtensionData.Host |where-object {$esxihosts.extensiondata.moref.value.contains($_.key.value)}
-      foreach ($hostMount in $hostMounts)
-      {
-        if ($hostMount.MountInfo.Accessible -eq $false)
-        {
-          $inaccessibleHost = get-vmhost -Id $hostMount.key
-          write-warning "Was unable to completely mount the VVol datastore on host $($inaccessibleHost.name). Please verify connectivity."
-        }
-      }
       return $datastore
 }
 function checkDefaultFlashArray{
