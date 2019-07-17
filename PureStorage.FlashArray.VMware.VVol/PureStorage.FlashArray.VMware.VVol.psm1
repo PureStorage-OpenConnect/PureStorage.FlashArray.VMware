@@ -967,20 +967,11 @@ function Get-PfaVasaProvider {
           [PurePowerShell.PureArray]$flasharray
       )
       $faID = "com.purestorage:" + (Get-PfaArrayAttributes -Array $flasharray).id
-      $providers = Get-VasaProvider |Where-Object {$_.Namespace -eq "com.purestorage"}
-      foreach ($provider in $providers)
+      $faName = (Get-PfaArrayAttributes -Array $flasharray).array_name
+      $faultDomain = Get-SpbmFaultDomain -Name $faName -ErrorAction Stop
+      if ($faultDomain.StorageArray.Id -eq $faID)
       {
-        $vasaArray = $null
-        $vasaArray = $provider |Get-VasaStorageArray |where-object {$_.Id -eq $faID}
-        if ($null -ne $vasaArray)
-        {
-          $vasaProvider = $provider
-          break
-        }
-      }
-      if ($null -ne $vasaProvider)
-      {
-          return $vasaProvider
+        return $faultDomain.VasaProvider
       }
       else 
       {
@@ -1046,6 +1037,266 @@ function Remove-PfaVasaProvider {
             $moreProviders = $false
           }
       }
+}
+import-module VMware.VimAutomation.Storage
+function Mount-PfaVvolDatastore {
+  <#
+  .SYNOPSIS
+    Mounts a FlashArray VVol Datastore to a host or cluster
+  .DESCRIPTION
+    Mounts a FlashArray VVol Datastore to a host or cluster, connects a PE to the cluster if not present.
+  .INPUTS
+    FlashArray connection, name, a VVol datastore, a VASA array, and/or a cluster.
+  .OUTPUTS
+    Returns the datastore
+  .EXAMPLE
+    PS C:\ $datastore = get-datastore m50-VVolDs
+    PS C:\ $flasharray = new-pfaConnection -endpoint flasharray-m50-1 -credentials $creds -ignoreCertificateError -nonDefaultArray
+    PS C:\ Mount-PfaVvolDatastore -datastore $datastore -flasharray $flasharray -cluster (get-cluster MyCluster)
+
+    Connects a protocol endpoint to a cluster and then mounts the specified existing VVol datastore to that cluster.
+  .EXAMPLE
+    PS C:\ $flasharray = new-pfaConnection -endpoint flasharray-m50-1 -credentials $creds -ignoreCertificateError -nonDefaultArray
+    PS C:\ Mount-PfaVvolDatastore -datastore $datastore -flasharray $flasharray -cluster (get-cluster MyCluster) -datastoreName m50-VVolDs
+
+    Mounts the default VVol datastore of the specifed FlashArray to the cluster.
+  .EXAMPLE
+    PS C:\ $vasaArray = get-vasaStorageArray m50-1-pure
+    PS C:\ Mount-PfaVvolDatastore -vasaArray $vasaArray -cluster (get-cluster MyCluster) 
+
+    Mounts the default VVol datastore of the specifed FlashArray to the cluster.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  07/16/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [PurePowerShell.PureArray]$flasharray,
+
+          [Parameter(Position=1)]
+          [string]$datastoreName,
+
+          [Parameter(Position=2,ValueFromPipeline=$True)]
+          [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+
+          [Parameter(Position=3,mandatory=$true,ValueFromPipeline=$True)]
+          [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+
+          [Parameter(Position=4)]
+          [string]$protocolEndpoint,
+
+          [Parameter(Position=5,ValueFromPipeline=$True)]
+          [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray]$vasaArray
+      )
+      if (($null -eq $datastore) -and ($null -eq $flasharray) -and ($null -eq $vasaArray))
+      {
+        throw "You must either enter in a VVol datastore, a Pure VASA array, or a FlashArray connection"
+      }
+      if ($null -ne $datastore) 
+      {
+        if ($datastore.Type -ne "VVOL")
+        {
+            throw "This is not a VVol datastore"
+        }
+        if ($datastore.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") 
+        {
+            throw "This is not a Pure Storage VVol datastore"
+        }
+        $arrayID = $datastore.ExtensionData.Info.VvolDS.StorageArray[0].Uuid
+        $scId = $datastore.ExtensionData.Info.VvolDS.ScId
+        $needToCalculateScID = $false
+        $datastoreName = $datastore.Name
+      }
+      elseif ($null -ne $flasharray) 
+      {
+        $arrayID = "com.purestorage:" + (Get-PfaArrayAttributes -array $flasharray).id
+        $needToCalculateScID = $True
+      }
+      elseif ($null -ne $vasaArray) 
+      {
+        if ($vasaArray.VendorId -ne "PURE")
+        {
+            throw "The passed in VASA array is not a Pure Storage VASA provider."
+        }
+        $needToCalculateScID = $True
+        $arrayID = $vasaArray.id
+      }
+      $esxiHosts = $cluster |Get-VMHost
+      #find array OUI
+      $arrayOui = $arrayID.substring(16,36)
+      $arrayOui = $arrayOui.replace("-","")
+      $arrayOui = $arrayOui.Substring(0,16)
+      if ($needToCalculateScID -eq $True)
+        {
+          #generateSCid
+          $md5 = new-object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
+          $utf8 = new-object -TypeName System.Text.UTF8Encoding
+          $hash = $md5.ComputeHash($utf8.GetBytes($arrayID.substring(16,36)))
+          $hash2 = $md5.ComputeHash(($hash))
+          $hash2[6] = $hash2[6] -band 0x0f
+          $hash2[6] = $hash2[6] -bor 0x30
+          $hash2[8] = $hash2[8] -band 0x3f
+          $hash2[8] = $hash2[8] -bor 0x80
+          $newGUID = (new-object -TypeName System.Guid -ArgumentList (,$hash2)).Guid
+          $fixedGUID = $newGUID.Substring(18)
+          $scId = $newGUID.Substring(6,2) + $newGUID.Substring(4,2) + $newGUID.Substring(2,2) + $newGUID.Substring(0,2) + "-" + $newGUID.Substring(11,2) + $newGUID.Substring(9,2) + "-" + $newGUID.Substring(16,2) + $newGUID.Substring(14,2) + $fixedGUID
+          $scId = $scId.Replace("-","")
+          $scId = "vvol:" + $scId.Insert(16,"-")
+        }
+      if ("" -eq $datastoreName)
+      {
+        $datastoreExists = get-datastore |Where-Object {$_.Type -eq "VVol"} |Where-Object {$_.ExtensionData.Info.VVolds.Scid -eq $scId}
+        if ($null -eq $datastoreExists)
+        {
+          throw "This storage container ID ($($scId)) has not yet been mounted in this vCenter as a VVol datastore, so no existing name was found. Please enter a name for the VVol datastore"
+        }
+        else {
+          $datastoreName = $datastoreExists.Name
+          if ($null -eq $datastore)
+          {
+              $datastore = $datastoreExists
+          }
+        }
+      }
+      foreach ($esxi in $esxiHosts)
+      {
+        $foundPE = $false
+        $esxcli = $esxi |Get-EsxCli -v2
+        $hostProtocolEndpoint = $esxcli.storage.core.device.list.invoke() |where-object {$_.IsVVOLPE -eq $true}
+        foreach ($hostPE in $hostProtocolEndpoint)
+        {
+          $peID = $hostPE.Device.Substring(12,24)
+          $peID = $peID.Substring(0,16)
+          if ($peID -eq $arrayOui)
+          {
+            $foundPE = $True
+            break
+          }
+        }
+        if ($foundPE -eq $false)
+        {
+          if ($null -eq $fa)
+          {
+            if ($null -ne $flasharray)
+            { 
+                $fa = $flasharray
+            }
+            else 
+            { 
+                try {
+                  $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+                }
+                Catch 
+                {
+                  if ($_.Exception -like "*Please either pass in one or more FlashArray connections*")
+                  {
+                      throw "No protocol endpoints found on the host $($esxi.name) for this array. Attempt to provision a PE failed as no valid PowerShell connections found for the array. Please either provision the protocol endpoint or connect the array with new-pfaconnection."
+                  }
+                }
+            }
+          }
+          $hGroup = get-pfaHostGroupfromVcCluster -cluster $cluster -flasharray $fa -ErrorAction Stop
+          $allPEs = Get-PfaProtocolEndpointVolumes -Array $fa -ErrorAction Stop
+          if (($null -ne $protocolEndpoint) -and ($protocolEndpoint -ne ""))
+          {
+              $pe = $allPEs |Where-Object {$_.name -eq $protocolEndpoint}
+              if ($null -eq $pe)
+              {
+                  throw "The Protocol Endpoint named $($protocolEndpoint) was not found."
+              }
+          }
+          else 
+          {
+            $pe = $allPEs |Where-Object {$_.name -eq "pure-protocol-endpoint"}
+          }
+          if ($null -eq $pe)
+          {
+            $pe = New-PfaProtocolEndpointVolume -Array $fa -VolumeName "pure-protocol-endpoint"
+          }
+          try
+          {
+            New-PfaHostGroupVolumeConnection -Array $fa -VolumeName $pe.name -HostGroupName $hGroup.name -ErrorAction Stop|Out-Null
+          }
+          catch
+          {
+            if ($_.Exception -notlike "*Connection already exists.*")
+            {
+                throw $_.Exception
+            }
+          }
+          foreach ($esxiRescan in $esxiHosts)
+          {
+              $hbas = $esxiRescan |get-pfaHostFromVmHost -flasharray $fa
+              if ($hbas.iqn.count -ge 1)
+              {
+                $hbaType = "iSCSI"
+              }
+              elseif ($hbas.wwn.count -ge 1) 
+              {
+                $hbaType = "FibreChannel"
+              }
+              $esxiHost = $esxiRescan.ExtensionData
+              $storageSystem = Get-View -Id $esxiHost.ConfigManager.StorageSystem
+              $hbas = ($esxiRescan |Get-VMHostHba |where-object {$_.Type -eq $hbaType}).device
+              foreach ($hba in $hbas) 
+              {
+                  $storageSystem.rescanHba($hba)
+              }
+          }
+          $hostProtocolEndpoint = $esxcli.storage.core.device.list.invoke() |where-object {$_.IsVVOLPE -eq $true}
+          $foundPE = $false
+          foreach ($hostPE in $hostProtocolEndpoint)
+          {
+            $peID = $hostPE.Device.Substring(12,24)
+            $peID = $peID.Substring(0,16)
+            if ($peID -eq $arrayOui)
+            {
+              $foundPE = $True
+              break
+            }
+          }
+          if ($foundPE -eq $false)
+          {
+              throw "The protocol endpoint is not visible to the host. Please ensure SAN access to the array."
+          }
+        }
+        $datastoreSystem = Get-View -Id $esxi.ExtensionData.ConfigManager.DatastoreSystem
+        $spec = New-Object VMware.Vim.HostDatastoreSystemVvolDatastoreSpec
+        $spec.Name = $datastoreName
+        $spec.ScId = $scId
+        $foundDatastore = $esxi |get-datastore |Where-Object {$_.Type -eq "VVol"} |Where-Object {$_.ExtensionData.Info.VVolds.Scid -eq $scId}
+        if ($null -eq $foundDatastore)
+        {
+          $datastore = Get-Datastore -Id ($datastoreSystem.CreateVvolDatastore($spec))
+        }
+        else 
+        {
+          Write-Warning "This VVol datastore ($($foundDatastore.name)) is already mounted on the host $($esxi.name). Skipping this host."
+        }
+        $foundDatastore = $null
+      }
+      $hostMounts = $datastore.ExtensionData.Host |where-object {$esxihosts.extensiondata.moref.value.contains($_.key.value)}
+      foreach ($hostMount in $hostMounts)
+      {
+        if ($hostMount.MountInfo.Accessible -eq $false)
+        {
+          $inaccessibleHost = get-vmhost -Id $hostMount.key
+          write-warning "Was unable to completely mount the VVol datastore on host $($inaccessibleHost.name). Please verify connectivity."
+        }
+      }
+      return $datastore
 }
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
