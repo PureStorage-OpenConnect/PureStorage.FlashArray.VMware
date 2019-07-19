@@ -1092,6 +1092,7 @@ function Install-PfavSpherePlugin {
   }
   if (($version -match '3\.[0-9]+\.[0-9]+$'))
   {
+    $flash = $true
     if ($html -eq $true)
     {
       throw "The specified version $($version) is not a valid version for the HTML plugin. Must be 4.x.x or higher."
@@ -1099,6 +1100,7 @@ function Install-PfavSpherePlugin {
   }
   if (($version -match '4\.[0-9]+\.[0-9]+$'))
   {
+    $html = $true
     if ($flash -eq $true)
     {
       throw "The specified version $($version) is not a valid version for the flash plugin. Must be 3.x.x or lower."
@@ -1180,7 +1182,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   else {
     if ($source -eq "Pure1")
     {
-      $hostedVersion = (Get-PfavSpherePlugin -version $version).Version
+      $hostedVersion = (Get-PfavSpherePlugin -html:$html -flash:$flash -version $version).Version
     }
     else 
     {
