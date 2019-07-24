@@ -473,6 +473,7 @@ function New-PfaHostFromVmHost {
         {
             if ($iscsi -eq $true)
             {
+                set-vmHostPfaiSCSI -esxi $esxi -flasharray $fa  -ErrorAction Stop|Out-Null
                 $iscsiadapter = $esxi | Get-VMHostHBA -Type iscsi | Where-Object {$_.Model -eq "iSCSI Software Adapter"}
                 if ($null -eq $iscsiadapter)
                 {
@@ -485,6 +486,11 @@ function New-PfaHostFromVmHost {
                 try
                 {
                     $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -IqnList $iqn -ErrorAction stop
+                    $majorVersion = ((Get-PfaArrayAttributes -Array $flasharray).version[0])
+                    if ($majorVersion -ge 5)
+                    {
+                      Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
+                    }
                     $vmHosts += $newFaHost
                 }
                 catch
