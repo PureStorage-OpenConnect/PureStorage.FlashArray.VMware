@@ -471,51 +471,65 @@ function New-PfaHostFromVmHost {
         }
         foreach ($fa in $flasharray)
         {
-            if ($iscsi -eq $true)
-            {
-                set-vmHostPfaiSCSI -esxi $esxi -flasharray $fa  -ErrorAction Stop|Out-Null
-                $iscsiadapter = $esxi | Get-VMHostHBA -Type iscsi | Where-Object {$_.Model -eq "iSCSI Software Adapter"}
-                if ($null -eq $iscsiadapter)
-                {
-                    throw "No Software iSCSI adapter found on host $($esxi.NetworkInfo.HostName)."
-                }
-                else
-                {
-                    $iqn = $iscsiadapter.ExtensionData.IScsiName
-                }
-                try
-                {
-                    $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -IqnList $iqn -ErrorAction stop
-                    $majorVersion = ((Get-PfaArrayAttributes -Array $flasharray).version[0])
-                    if ($majorVersion -ge 5)
-                    {
-                      Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
-                    }
-                    $vmHosts += $newFaHost
-                }
-                catch
-                {
-                    Write-Error $Global:Error[0]
-                    return $null
-                }
+            try {
+              $newFaHost = $null
+              $newFaHost = Get-PfaHostFromVmHost -flasharray $fa -esxi $esxi -ErrorAction Stop
+              $vmHosts += $newFaHost
             }
-            if ($fc -eq $true)
+            catch {}
+            if ($null -eq $newFaHost)
             {
-                $wwns = $esxi | Get-VMHostHBA -Type FibreChannel | Select-Object VMHost,Device,@{N="WWN";E={"{0:X}" -f $_.PortWorldWideName}} | Format-table -Property WWN -HideTableHeaders |out-string
-                $wwns = (($wwns.Replace("`n","")).Replace("`r","")).Replace(" ","")
-                $wwns = &{for ($i = 0;$i -lt $wwns.length;$i += 16)
+                if ($iscsi -eq $true)
                 {
-                        $wwns.substring($i,16)
-                }}
-                try
-                {
-                    $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -WwnList $wwns -ErrorAction stop
-                    $vmHosts += $newFaHost
-                    $Global:CurrentFlashArray = $fa
+                    set-vmHostPfaiSCSI -esxi $esxi -flasharray $fa  -ErrorAction Stop|Out-Null
+                    $iscsiadapter = $esxi | Get-VMHostHBA -Type iscsi | Where-Object {$_.Model -eq "iSCSI Software Adapter"}
+                    if ($null -eq $iscsiadapter)
+                    {
+                        throw "No Software iSCSI adapter found on host $($esxi.NetworkInfo.HostName)."
+                    }
+                    else
+                    {
+                        $iqn = $iscsiadapter.ExtensionData.IScsiName
+                    }
+                    try
+                    {
+                        $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -IqnList $iqn -ErrorAction stop
+                        $majorVersion = ((Get-PfaArrayAttributes -Array $fa).version[0])
+                        if ($majorVersion -ge 5)
+                        {
+                          Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
+                        }
+                        $vmHosts += $newFaHost
+                    }
+                    catch
+                    {
+                        Write-Error $Global:Error[0]
+                        return $null
+                    }
                 }
-                catch
+                if ($fc -eq $true)
                 {
-                    Write-Error $Global:Error[0]
+                    $wwns = $esxi | Get-VMHostHBA -Type FibreChannel | Select-Object VMHost,Device,@{N="WWN";E={"{0:X}" -f $_.PortWorldWideName}} | Format-table -Property WWN -HideTableHeaders |out-string
+                    $wwns = (($wwns.Replace("`n","")).Replace("`r","")).Replace(" ","")
+                    $wwns = &{for ($i = 0;$i -lt $wwns.length;$i += 16)
+                    {
+                            $wwns.substring($i,16)
+                    }}
+                    try
+                    {
+                        $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -WwnList $wwns -ErrorAction stop
+                        $majorVersion = ((Get-PfaArrayAttributes -Array $fa).version[0])
+                        if ($majorVersion -ge 5)
+                        {
+                          Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
+                        }
+                        $vmHosts += $newFaHost
+                        $Global:CurrentFlashArray = $fa
+                    }
+                    catch
+                    {
+                        Write-Error $Global:Error[0]
+                    }
                 }
             }
         }
@@ -784,7 +798,17 @@ function New-PfaHostGroupfromVcCluster {
             {
                 $faHost = $null
                 try {
-                    $faHost = Get-PfaHostFromVmHost -flasharray $fa -esxi $esxiHost
+                  $faHost = Get-PfaHostFromVmHost -flasharray $fa -esxi $esxiHost
+                  if ($null -ne $faHost.hgroup)
+                  {
+                      if ($null -ne $hostGroup)
+                      {
+                          if ($hostGroup.name -ne $faHost.hgroup)
+                          {
+                            throw "The host $($faHost.name) already exists and is already in the host group $($faHost.hgroup). Ending workflow."
+                          }
+                      }
+                  }
                 }
                 catch {}
                 if ($null -eq $faHost)
@@ -797,7 +821,6 @@ function New-PfaHostGroupfromVcCluster {
                         Write-Error $Global:Error[0]
                         throw "Could not create host. Cannot create host group." 
                     }
-                    
                 }
                 else {
                     $faHosts += $faHost
