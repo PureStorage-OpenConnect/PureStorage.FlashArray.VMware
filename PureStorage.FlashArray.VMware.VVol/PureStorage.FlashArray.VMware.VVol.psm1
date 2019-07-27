@@ -1289,6 +1289,167 @@ function Mount-PfaVvolDatastore {
       }
       return $datastore
 }
+function Initialize-PfaVVols {
+  <#
+  .SYNOPSIS
+    Configures a VMware environment from scratch for Pure Storage FlashArray VVols.
+  .DESCRIPTION
+    Configures iSCSI, host groups, registers VASA, installs the vSphere Plugin, mounts VVol datastore to specified cluster
+  .INPUTS
+    FlashArray FQDN/IP and credentials, a vCenter cluster or clusters
+  .OUTPUTS
+    Returns the VVol datastore
+  .EXAMPLE
+    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
+    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -allClusters 
+
+    Description. Configures VVols for a FlashArray for all clusters in a vCenter.
+  .EXAMPLE
+    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
+    PS C:\ $cluster = get-cluster myCluster
+    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -cluster $cluster
+
+    Description. Configures VVols for a FlashArray for the cluster called myCluster in a vCenter.
+  .EXAMPLE
+    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
+    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -allClusters -iscsi
+
+    Description. Configures VVols for a FlashArray for all clusters in a vCenter and specifies iSCSI as the connection protocol.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  07/25/2019
+    Purpose/Change: First release
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+          [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
+          [string]$flasharray,
+
+          [Parameter(Position=1,ValueFromPipeline=$True)]
+          [System.Management.Automation.PSCredential]$credentials,
+
+          [Parameter(Position=2,ValueFromPipeline=$True)]
+          [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster[]]$cluster,
+
+          [Parameter(Position=3,ValueFromPipeline=$True)]
+          [switch]$allClusters,
+
+          [Parameter(Position=4)]
+          [switch]$iscsi,
+  
+          [Parameter(Position=5)]
+          [switch]$fc,
+
+          [Parameter(Position=6)]
+          [string]$datastoreName
+  )
+  if ($null -eq $global:defaultviserver)
+  {
+    $vcenter = Read-Host "Please enter in a vCenter server address"
+    Connect-VIServer -Server $vcenter
+  }
+  if (($iscsi -eq $true) -and ($fc -eq $true))
+  {
+      throw "Please only specify iSCSI or FC or neither. If neither is specified the cmdlet will query the array for protocol support."
+  }
+  if (($null -ne $cluster) -and ($allClusters -eq $true))
+  {
+      throw "Please either only pass in specific clusters OR use the -allClusters parameter. Not both."
+  }
+  if (($null -eq $cluster) -and ($allClusters -eq $false))
+  {
+    $clusterName = Read-Host "Please enter a cluster name to mount the VVol datastore"
+    $cluster = Get-Cluster $clusterName -ErrorAction Stop
+  }
+  if ($allClusters -eq $True)
+  {
+    $cluster = Get-Cluster
+  }
+  if ($null -eq $credentials)
+  {
+    $credentials = Get-Credential -Message "Please enter in FlashArray administrative credentials"
+  }
+  Write-Progress -Activity "Connecting to FlashArray" -status "Connecting..." -percentComplete 0
+  $fa = New-PfaArray -EndPoint $flasharray -Credentials $credentials -IgnoreCertificateError -ErrorAction Stop
+  if (($iscsi -eq $false) -and ($fc -eq $false))
+  {
+      $foundFC = $null
+      $foundFC = Get-PfaAllHardwareAttributes -Array $fa |Where-Object {$_.name -like "*FC*"}
+      if ($null -eq $foundFC)
+      {
+          $iscsi = $True
+      }
+      else 
+      {
+          $fc = $True
+      }
+  }
+  Write-Progress -Activity "Connecting to FlashArray" -status "Connected." -percentComplete 20
+  if ($fc -eq $true)
+  {
+    write-warning "Fibre Channel is the selected protocol. This script does not configure zoning, so ensure that this is completed."
+  }
+  $percentComplete = (21 - (20/$cluster.count))
+  foreach ($workingCluster in $cluster)
+  {
+      Write-Progress -Activity "Creating host group(s)" -status $workingCluster.name -percentComplete ($percentComplete + (20/$cluster.count))
+      new-pfaHostGroupfromVcCluster -cluster $workingCluster -iscsi:$iscsi -fc:$fc -flasharray $fa -ErrorAction Stop |Out-Null
+      $percentComplete = $percentComplete + (20/$cluster.count)
+  }
+  Write-Progress -Activity "Creating host group(s)" -status "Created." -percentComplete 40
+  #vSphere Plugin installation
+  Write-Progress -Activity "Installing vSphere Plugin" -status "Installing..." -percentComplete 41
+  try 
+  {
+    $pureplugins = get-pfavsphereplugin -source Pure1 -html
+    if ($null -eq $pureplugins)
+    {
+      install-pfavSpherePlugin -flasharray $fa -ErrorAction stop -Confirm:$false|Out-Null
+    }
+    else 
+    {
+      install-pfavSpherePlugin -source "Pure1" -html -ErrorAction stop -Confirm:$false|Out-Null
+    }
+    Write-Progress -Activity "Installing vSphere Plugin" -status "Installed." -percentComplete 60
+  }
+  catch 
+  {
+      Write-Warning $_
+  }
+
+  #Register VASA
+  Write-Progress -Activity "Registering VASA Providers" -status "Registering..." -percentComplete 61
+  New-PfaVasaProvider -flasharray $fa -credentials $credentials |Out-Null
+  Write-Progress -Activity "Registering VASA Providers" -status "Registered." -percentComplete 80
+  Write-Progress -Activity "Mounting VVol Datastore" -status "Mounting..." -percentComplete 81
+  if ($datastoreName -eq "")
+  {
+      $datastoreName = ((Get-PfaArrayAttributes -Array $fa).array_name + "-VVolDS" )
+  }
+  $percentComplete = (81 - (20/$cluster.count))
+  foreach ($workingCluster in $cluster)
+  {
+    Write-Progress -Activity "Mounting VVol Datastore" -status "Mounting on cluster $($workingCluster.Name)..." -percentComplete ($percentComplete + (20/$cluster.count))
+    $datastore = Mount-PfaVvolDatastore -flasharray $fa -cluster $workingCluster -datastoreName $datastoreName 
+    $percentComplete = $percentComplete + (20/$cluster.count)
+    if (($percentComplete + (20/$cluster.count)) -ge 100)
+    {
+      $percentComplete = 99 - (20/$cluster.count)
+    }
+  }
+  Write-Progress -Activity "Mounting VVol Datastore" -status "Mounted on cluster(s)." -percentComplete 100
+  return $datastore
+}
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
     {

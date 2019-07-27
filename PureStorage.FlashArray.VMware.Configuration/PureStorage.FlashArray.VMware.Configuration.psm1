@@ -1105,6 +1105,25 @@ function Install-PfavSpherePlugin {
           [Parameter(Position=4)]
           [string]$version
       )
+  if ($null -eq $global:defaultviserver)
+  {
+    throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
+  }
+  if (($null -ne $flasharray) -and ($source -ne ""))
+  {
+      throw "You cannot pass in both a source and a FlashArray connection. One or the other, or neither (defaults to Pure1)"
+  }
+  if ($null -ne $flasharray)
+  {
+      $noPureOne = $true
+  }
+  elseif (($source -ne "") -and ($source -ne "Pure1"))
+  {
+      $noPureOne = $true
+  }
+  else {
+    $noPureOne = $false
+  }
   $vCenterVersion = ($global:DefaultVIServer | Select-Object Version).version
   if ($vCenterVersion.split(".")[0] -eq 5)
   {
@@ -1201,26 +1220,33 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   {
     if ($source -eq "Pure1")
     {
-      $hostedVersion = (Get-PfavSpherePlugin -html:$html -flash:$flash -version $version).Version
+      $hostedVersion = Get-PfavSpherePlugin -html:$html -flash:$flash -version $version
     }
     else 
     {
-      $hostedVersion = (Get-PfavSpherePlugin -html:$html -flash:$flash -version $version -source $ipAddress).Version
+      $hostedVersion = Get-PfavSpherePlugin -html:$html -flash:$flash -version $version -source $ipAddress
     }
   }
   else {
     if ($source -eq "Pure1")
     {
-      $hostedVersion = (Get-PfavSpherePlugin -html:$html -flash:$flash -version $version).Version
+      $hostedVersion = Get-PfavSpherePlugin -html:$html -flash:$flash -version $version
     }
     else 
     {
-      $hostedVersion = (Get-PfavSpherePlugin -version $version -source $ipAddress).Version
+      $hostedVersion = Get-PfavSpherePlugin -version $version -source $ipAddress
     }
   }
   if ($null -eq $hostedVersion)
   {
     throw "Specified plugin type or version not found on available source"
+  }
+  if ($noPureOne -eq $true)
+  {
+    $hostedVersion = ($hostedVersion |Where-Object {$_.Source -ne "Pure1"}).version
+  }
+  else {
+    $hostedVersion = $hostedVersion.version
   }
 
   #find out what plugin will be installed and whether it is an upgrade. Will fail if newer version is on vCenter
@@ -1430,10 +1456,10 @@ function Get-PfavSpherePlugin {
     
     Retrieves the vSphere plugin version from the FlashArray IPs or FQDNs and Pure1
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/13/2019
-    Purpose/Change: First release
+    Creation Date:  07/27/2019
+    Purpose/Change: Bug fix for specifying Pure1 as source
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -1470,7 +1496,7 @@ function Get-PfavSpherePlugin {
       $flasharray = $Global:AllFlashArrays
   }
   #identify version of the plugin on the array
-  $targetAddresses = @()  
+  $targetAddresses = @()
   foreach ($fa in $flasharray)
   {
     $ipAddress = (Get-PfaNetworkInterface -Array $fa -Name vir0).address
@@ -1483,6 +1509,10 @@ function Get-PfavSpherePlugin {
   }
   foreach ($ipTarget in $source)
   {
+    if ($ipTarget -eq "Pure1")
+    {
+      continue 
+    }
     try {
       $targetAddresses += ([system.net.dns]::GetHostByAddress($ipTarget)).HostName
     }
@@ -1504,116 +1534,117 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   $identifiedArrays = @()
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-  $hostedVersions = @()
-  foreach ($targetAddress in $targetAddresses)
-  {
-      $hostedVersion = $null
-      if ([string]::IsNullOrWhiteSpace($version))
-      {
-          for ($major=0; $major -le 9; $major++)
-          {
-              if ($null -ne $hostedVersion)
-              {
-                  break
-              }
-              for ($minor=0; $minor -le 9; $minor++)
-              {
-                  $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.$($major).$($minor)")
-                  try {
-                      $HTTP_Response = $null
-                      $HTTP_Request.Timeout = 500
-                      $HTTP_Response = $HTTP_Request.GetResponse() 
-                      $HTTP_Status = [int]$HTTP_Response.StatusCode
-                      If ($HTTP_Status -eq 200) 
-                      {
-                          $hostedVersion = "4.$($major).$($minor)"
-                          $hostedVersions += $hostedVersion
-                          $identifiedArrays += $targetAddress
-                          break
-                      }
-                  }
-                  catch {}
-              }
-          }
-          if ($null -eq $hostedVersion)
-          {
-              $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.0.999999")
-              try {
-                  $HTTP_Response = $null
-                  $HTTP_Request.Timeout = 500
-                  $HTTP_Response = $HTTP_Request.GetResponse() 
-                  $HTTP_Status = [int]$HTTP_Response.StatusCode
-                  If ($HTTP_Status -eq 200) 
-                  {
-                      $hostedVersion = "4.0.999999"
-                      $hostedVersions += $hostedVersion
-                      $identifiedArrays += $targetAddress
-                  }
-              }
-              catch {}
-              for ($major=0; $major -le 1; $major++)
-              {
-                  if ($null -ne $hostedVersion)
-                  {
-                      break
-                  }
-                  for ($minor=0; $minor -le 9; $minor++)
-                  {
-                      $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=3.$($major).$($minor)")
-                      try {
-                          $HTTP_Response = $null
-                          $HTTP_Request.Timeout = 500
-                          $HTTP_Response = $HTTP_Request.GetResponse() 
-                          $HTTP_Status = [int]$HTTP_Response.StatusCode
-                          If ($HTTP_Status -eq 200) 
-                          {
-                              $hostedVersion = "3.$($major).$($minor)"
-                              $hostedVersions += $hostedVersion
-                              $identifiedArrays += $targetAddress
-                              break
-                          }
-                      }
-                      catch {}
-                  }
-              }
-          }
-      }
-      else 
-      {
-          $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=$($version)")
-          try {
-              $HTTP_Response = $null
-              $HTTP_Request.Timeout = 500
-              $HTTP_Response = $HTTP_Request.GetResponse() 
-              $HTTP_Status = [int]$HTTP_Response.StatusCode
-              If ($HTTP_Status -eq 200) 
-              {
-                  $hostedVersion = $version
-                  $hostedVersions += $hostedVersion
-                  $identifiedArrays += $targetAddress
-              }
-          }
-          catch {}
-      }
-  }
-  $plugins =@()
-  $arrays = 0
-  foreach ($plugin in $hostedVersions)
-  {
-    $Result = $null
-    $Result = "" | Select-Object Source,Type,Version
-    $Result.Source = $identifiedArrays[$arrays]
-    $Result.Version = $plugin
-    if ($plugin.split(".")[0] -ge 4)
+    $hostedVersions = @()
+    foreach ($targetAddress in $targetAddresses)
     {
-      $Result.Type = "HTML-5"
+        $hostedVersion = $null
+        if ([string]::IsNullOrWhiteSpace($version))
+        {
+            for ($major=0; $major -le 9; $major++)
+            {
+                if ($null -ne $hostedVersion)
+                {
+                    break
+                }
+                for ($minor=0; $minor -le 9; $minor++)
+                {
+                    $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.$($major).$($minor)")
+                    try {
+                        $HTTP_Response = $null
+                        $HTTP_Request.Timeout = 500
+                        $HTTP_Response = $HTTP_Request.GetResponse() 
+                        $HTTP_Status = [int]$HTTP_Response.StatusCode
+                        If ($HTTP_Status -eq 200) 
+                        {
+                            $hostedVersion = "4.$($major).$($minor)"
+                            $hostedVersions += $hostedVersion
+                            $identifiedArrays += $targetAddress
+                            break
+                        }
+                    }
+                    catch {}
+                }
+            }
+            if ($null -eq $hostedVersion)
+            {
+                $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.0.999999")
+                try {
+                    $HTTP_Response = $null
+                    $HTTP_Request.Timeout = 500
+                    $HTTP_Response = $HTTP_Request.GetResponse() 
+                    $HTTP_Status = [int]$HTTP_Response.StatusCode
+                    If ($HTTP_Status -eq 200) 
+                    {
+                        $hostedVersion = "4.0.999999"
+                        $hostedVersions += $hostedVersion
+                        $identifiedArrays += $targetAddress
+                    }
+                }
+                catch {}
+                for ($major=0; $major -le 1; $major++)
+                {
+                    if ($null -ne $hostedVersion)
+                    {
+                        break
+                    }
+                    for ($minor=0; $minor -le 9; $minor++)
+                    {
+                        $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=3.$($major).$($minor)")
+                        try {
+                            $HTTP_Response = $null
+                            $HTTP_Request.Timeout = 500
+                            $HTTP_Response = $HTTP_Request.GetResponse() 
+                            $HTTP_Status = [int]$HTTP_Response.StatusCode
+                            If ($HTTP_Status -eq 200) 
+                            {
+                                $hostedVersion = "3.$($major).$($minor)"
+                                $hostedVersions += $hostedVersion
+                                $identifiedArrays += $targetAddress
+                                break
+                            }
+                        }
+                        catch {}
+                    }
+                }
+            }
+        }
+        else 
+        {
+            $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=$($version)")
+            try {
+                $HTTP_Response = $null
+                $HTTP_Request.Timeout = 500
+                $HTTP_Response = $HTTP_Request.GetResponse() 
+                $HTTP_Status = [int]$HTTP_Response.StatusCode
+                If ($HTTP_Status -eq 200) 
+                {
+                    $hostedVersion = $version
+                    $hostedVersions += $hostedVersion
+                    $identifiedArrays += $targetAddress
+                }
+            }
+            catch {}
+        }
     }
-    else {
-      $Result.Type = "Flash"
+    $plugins =@()
+    $arrays = 0
+    foreach ($plugin in $hostedVersions)
+    {
+      $Result = $null
+      $Result = "" | Select-Object Source,Type,Version
+      $Result.Source = $identifiedArrays[$arrays]
+      $Result.Version = $plugin
+      if ($plugin.split(".")[0] -ge 4)
+      {
+        $Result.Type = "HTML-5"
+      }
+      else {
+        $Result.Type = "Flash"
+      }
+      $arrays++
+      $plugins += $Result
     }
-    $arrays++
-    $plugins += $Result
-  }
+
   try {
     $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip?tagging"
     $Result = $null
