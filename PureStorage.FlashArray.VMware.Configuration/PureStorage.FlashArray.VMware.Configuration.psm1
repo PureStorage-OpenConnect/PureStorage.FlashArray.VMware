@@ -1398,6 +1398,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   $extensionSpec.Description = $description
   $extensionSpec.Client += $extensionClientInfo
   $extensionSpec.Server += $extensionServerInfo
+  $extensionSpec.LastHeartbeatTime = get-date
 
   if ($source -ne "Pure1")
   {
