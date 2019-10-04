@@ -79,7 +79,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
-<ul><li>W is iterated for large updates</li><li>X is iterated for new cmdlets</li><li>Y is iterated for new functions to existing cmdlets</li><li>Z is iterated for bug fixes</li></ul>
+<ul><li>W is iterated for significant architectural updates</li><li>X is iterated for new sub-modules</li><li>Y is iterated for new cmdlets or major enhancements to one</li><li>Z is iterated for bug fixes</li></ul>
 <!-- /wp:list -->
 
 <h2>Latest version 1.2.4.0 (October 4th, 2019)</h2>
