@@ -1678,6 +1678,209 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   return $plugins
 }
 
+function Deploy-PfaAppliance {
+  <#
+  .SYNOPSIS
+    Deploys the Pure Storage OVA for off-array integrations and applications.
+  .DESCRIPTION
+    Deploys the Pure Storage OVA for off-array integrations and applications.
+  .INPUTS
+    An authorization key, DHCP info, IP info.
+  .OUTPUTS
+    Returns the VMX.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  10/04/2019
+    Purpose/Change: New cmdlet
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+
+      [Parameter(Position=0,mandatory=$true)]
+      [string]$vmName,
+
+      [Parameter(Position=1,ValueFromPipeline=$True)]
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$vmHost,
+
+      [Parameter(Position=2)]
+      [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+
+      [Parameter(Position=3)]
+      [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroup]$portGroup,
+
+      [Parameter(Position=4)]
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+
+      [Parameter(Position=5)]
+      [switch]$dhcp,
+
+      [Parameter(Position=6,mandatory=$true)]
+      [string]$authorizationKey,
+
+      [Parameter(Position=7)]
+      [string]$ipAddress,
+
+      [Parameter(Position=8)]
+      [string]$netmask,
+
+      [Parameter(Position=9)]
+      [string]$gateway,
+
+      [Parameter(Position=10)]
+      [string]$dnsPrimary,
+
+      [Parameter(Position=11)]
+      [string]$dnsSecondary,
+
+      [Parameter(Position=12)]
+      [string]$hostName,
+
+      [Parameter(Position=13)]
+      [string]$ovaLocation,
+
+      [Parameter(Position=14)]
+      [switch]$silent
+  )
+  $ErrorActionPreference = "stop"
+  if ($null -eq $portGroup)
+  {
+    throw "Please pass in a virtual port group with get-virtualportgroup"
+  }
+  if ($null -eq $datastore)
+  {
+    throw "Please pass in a datastore with get-datastore"
+  }
+  try
+  {
+    $foundVM = get-vm $vmName
+  }
+  catch  {}
+  if ($null -ne $foundVM)
+  {
+    throw "A VM with the name $($vmName) already exists. Please specify a unique name."
+  }
+  if ($dhcp -eq $false)
+    {
+      if ([string]::IsNullOrEmpty($ipAddress))
+      {
+        throw "If you do not specify DHCP, you must enter an IP address."
+      }
+      if ([string]::IsNullOrEmpty($netmask))
+      {
+        throw "If you do not specify DHCP, you must enter a netmask"
+      }
+      if ([string]::IsNullOrEmpty($gateway))
+      {
+        throw "If you do not specify DHCP, you must enter a gateway"
+      }
+      if ([string]::IsNullOrEmpty($dnsPrimary))
+      {
+        throw "If you do not specify DHCP, you must enter at least one DNS server IP"
+      }
+      if ([string]::IsNullOrEmpty($hostName))
+      {
+        throw "If you do not specify DHCP, you must enter a fully-qualified domain name."
+      }
+    }
+    if ([string]::IsNullOrEmpty($authorizationKey))
+    {
+      throw "You must pass in an authorization key. This can be acquired from Pure1.purestorage.com by your Pure1 organization admin(s)."
+    }
+    if (($null -eq $cluster) -and ($null -eq $vmHost))
+    {
+      throw "Please pass in a vSphere cluster or a specific ESXi host."
+    }
+    elseif ($null -eq $vmhost)
+    {
+        $vmHost = $cluster | get-vmhost | where-object {($_.version -like '5.5.*') -or ($_.version -like '6.*')}| where-object {($_.ConnectionState -eq 'Connected')} |Select-Object -last 1
+    }
+    if (($null -eq $ovaLocation)-or ($ovaLocation -eq ""))
+    {
+      if ($silent -ne $true)
+      {
+          write-host ""
+          write-host "Downloading OVA to $($env:temp)\purestorage-vma-collector_latest-signed.ova..."
+      }
+      $ProgressPreference = 'SilentlyContinue'
+      if ([System.IO.File]::Exists($ovaLocation))
+      {
+        throw "There is already an OVA at the default location. Ensure file at $($ovaLocation) is correct and directly specify it or delete it so it can be re-downloaded with the latest version."
+      }
+      Invoke-WebRequest -Uri "https://static.pure1.purestorage.com/vm-analytics-collector/purestorage-vma-collector_latest-signed.ova" -OutFile $env:temp\purestorage-vma-collector_latest-signed.ova
+      $ovaLocation = "$($env:temp)\purestorage-vma-collector_latest-signed.ova"
+      $deleteOVA = $true
+      if ($silent -ne $true)
+      {
+        write-host "Download complete."
+      } 
+    }
+    else {
+      $deleteOVA = $false
+      if (![System.IO.File]::Exists($ovaLocation))
+      {
+        throw "Could not find OVA file. Ensure file location $($ovaLocation) is correct/accessible."
+      }
+    }
+    try 
+    {
+      $ovaConfig = Get-OvfConfiguration $ovaLocation
+      if ($dhcp -eq $true)
+      {
+          $ovaConfig.Common.DHCP.value = $true
+      }
+      else 
+      {
+        $ovaConfig.Common.IP_Address.value = $ipAddress
+        $ovaConfig.Common.Netmask.value = $netmask
+        $ovaConfig.Common.Gateway.value = $gateway
+        $ovaConfig.Common.DNS_Server_1.value = $dnsPrimary
+        $ovaConfig.Common.DNS_Server_2.value = $dnsSecondary
+        $ovaConfig.Common.Hostname.value = $hostName
+        $ovaConfig.Common.DHCP.value = $false
+      }
+      $ovaConfig.Common.Authorization_Key.value = $authorizationKey
+      $ovaConfig.NetworkMapping.VM_Network.value = $portGroup
+      if ($silent -ne $true)
+      {
+        write-host "Deploying OVA..."
+      } 
+      $vm = Import-VApp -Source $ovaLocation -OvfConfiguration $ovaConfig -Name $vmName -VMHost $vmhost -Datastore $datastore -DiskStorageFormat thin -Force
+      if ($silent -ne $true)
+      {
+        write-host "OVA deployed."
+      } 
+    }
+    catch 
+    {
+      if ($deleteOVA -eq $true)
+      {
+        Remove-Item $ovaLocation
+      }
+      throw $Global:Error[0]
+    }
+  if ($deleteOVA -eq $true)
+  {
+      Remove-Item $ovaLocation
+  }
+  if ($silent -ne $true)
+  {
+    write-host "Powering-on VM..."
+  }
+  Start-VM $vm  |out-null
+  return (get-vm $vm)
+}
+
+
 #aliases to not break compatibility with original cmdlet names
 New-Alias -Name New-pureflasharrayRestSession -Value New-PfaRestSession
 New-Alias -Name remove-pureflasharrayRestSession -Value remove-PfaRestSession
