@@ -1689,9 +1689,9 @@ function Deploy-PfaAppliance {
   .OUTPUTS
     Returns the VMX.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  10/04/2019
+    Creation Date:  10/27/2019
     Purpose/Change: New cmdlet
 
   *******Disclaimer:******************************************************
@@ -1716,7 +1716,7 @@ function Deploy-PfaAppliance {
       [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
       [Parameter(Position=3)]
-      [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroup]$portGroup,
+      [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroupBase]$portGroup,
 
       [Parameter(Position=4)]
       [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
