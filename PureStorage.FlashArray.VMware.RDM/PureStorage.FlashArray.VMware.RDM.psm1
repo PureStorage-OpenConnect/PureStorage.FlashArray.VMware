@@ -360,7 +360,7 @@ function new-pfaVolRdmSnapshot {
     Process {
         foreach ($rdmDisk in $rdm)
         {
-            $fa = get-pfaConnectionlfromRDM -rdm $rdmDisk -flasharray $flasharray -ErrorAction Stop
+            $fa = get-pfaConnectionfromRDM -rdm $rdmDisk -flasharray $flasharray -ErrorAction Stop
             $pureVol = $rdmDisk | get-faVolfromRDM -flasharray $fa -ErrorAction Stop
             $Global:CurrentFlashArray = $fa
             if ($suffix -eq "")

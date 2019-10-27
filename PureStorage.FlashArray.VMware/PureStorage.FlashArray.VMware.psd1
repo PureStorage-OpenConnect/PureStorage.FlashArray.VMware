@@ -29,7 +29,7 @@
 	RootModule = ''
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.2.4.0'
+	ModuleVersion = '1.2.4.1'
 	
 	# ID used to uniquely identify this module
 	GUID = 'a38571e9-918e-4542-bebc-b5294ad4ffbb'
@@ -68,7 +68,7 @@
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="1.0.0.1"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="1.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="1.0.0.3"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.3.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.VVol";"ModuleVersion"="1.3.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Pure1";"ModuleVersion"="1.0.0.0"}
