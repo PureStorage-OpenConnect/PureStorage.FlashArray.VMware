@@ -437,7 +437,7 @@ function New-PfaHostFromVmHost {
       {
           Write-Warning -Message "The protocolType parameter is being deprecated, please use the -fc or -iscsi switch parameters instead."
       }
-      if (($protocolType -ne "FC") -and ($protocolType -ne "iSCSI") -and ($iscsi -ne $true) -and ($protocolType -ne $true))
+      if (($protocolType -ne "FC") -and ($protocolType -ne "iSCSI") -and ($iscsi -ne $true) -and ($fc -ne $true))
       {
           throw 'No valid protocol entered. Please add the -fc or -iscsi switch parameter"'
       }
@@ -1880,6 +1880,196 @@ function Deploy-PfaAppliance {
   return (get-vm $vm)
 }
 
+function Initialize-PfaVcfWorkloadDomain {
+  <#
+  .SYNOPSIS
+    Configures a workload domain for Pure Storage
+  .DESCRIPTION
+    Connects to each ESXi host, configures initiators on the FlashArray and provisions a VMFS. If something fails it will cleanup any changes.
+  .INPUTS
+    FQDNs or IPs of each host, valid credentials, a FlashArray connection, a datastore name and size.
+  .OUTPUTS
+    Returns host group.
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  11/12/2019
+    Purpose/Change: New cmdlet
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -ignoreCertificateError -defaultArray
+    PS C:\ $creds = get-credential
+    PS C:\ Initialize-PfaVcfWorkloadDomain -esxiHosts "esxi-02.purecloud.com","esxi-04.purecloud.com" -credentials $creds -datastoreName "vcftest" -sizeInTB 16 -fc
+    
+    Creates a host group and hosts and provisions a 16 TB VMFS to the hosts over FC
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -ignoreCertificateError -defaultArray
+    PS C:\ $creds = get-credential
+    PS C:\ $allHosts = @()
+    PS C:\ Import-Csv C:\hostList.csv | ForEach-Object {$allHosts += $_.hostnames} 
+    PS C:\ Initialize-PfaVcfWorkloadDomain -esxiHosts $allHosts -credentials $creds -datastoreName "vcftest" -sizeInTB 16 -fc
+    
+    Creates a host group and hosts and provisions a 16 TB VMFS to the hosts over FC. This takes in a csv file of ESXi host FQDNs with one csv header called hostnames
+  
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+
+      [Parameter(Position=0,mandatory=$true)]
+      [string[]]$esxiHosts,
+
+      [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
+      [System.Management.Automation.PSCredential]$credentials,
+
+      [Parameter(Position=1,ValueFromPipeline=$True)]
+      [PurePowerShell.PureArray]$flasharray,
+
+      [Parameter(Position=2,mandatory=$true)]
+      [string]$datastoreName,
+
+      [Parameter(Position=3)]
+      [int]$sizeInGB,
+
+      [Parameter(Position=4)]
+      [int]$sizeInTB,
+
+      [Parameter(Position=5)]
+      [switch]$fc
+    
+  )
+  if ($fc -ne $true)
+  {
+    throw "Please indicate protocol type. Currently only -fc is a supported option."
+  }
+  $ErrorActionPreference = "stop"
+  if (($sizeInGB -eq 0) -and ($sizeInTB -eq 0))
+  {
+      throw "Please enter a size in GB or TB"
+  }
+  elseif (($sizeInGB -ne 0) -and ($sizeInTB -ne 0)) {
+      throw "Please only enter a size in TB or GB, not both."
+  }
+  elseif ($sizeInGB -ne 0) {
+      $volSize = $sizeInGB * 1024 *1024 *1024   
+  }
+  else {
+      $volSize = $sizeInTB * 1024 *1024 *1024 * 1024
+  }
+  if ($null -eq $flasharray)
+  {
+    $flasharray = checkDefaultFlashArray
+  }
+  $esxiConnections = @()
+  for ($i =0;$i -lt $esxiHosts.count;$i++)
+  {
+    try {
+         $esxiConnections += connect-viserver -Server $esxiHosts[$i] -Credential ($Credentials) -ErrorAction Stop
+    }
+    catch
+    {
+      $scriptCleanupStep = 0
+      cleanup-pfaVcf
+    }
+  }
+  $faHosts = @()
+  for ($i =0;$i -lt $esxiConnections.count;$i++)
+  {
+    $foundHost = $null
+    try {
+        $foundHost = Get-PfaHostFromVmHost -esxi (get-vmhost $esxiConnections[$i].name) 
+        if ($null -ne $foundHost)
+        {
+          if ($faHosts.count -ge 1)
+          {
+            $scriptCleanupStep = 1
+          }
+          else
+          {
+            $scriptCleanupStep = 6
+          }
+          $esxiName =$esxiConnections[$i].name
+          cleanup-pfaVcf
+          $newError =   ("The host " + $esxiName + " already exists on the FlashArray. Ensure you entered the right host and/or array")
+          throw ""
+        }
+    }
+    catch {
+      if ($null -ne $newError)
+      {
+        throw $newError
+      }
+    }
+    try{
+      $faHosts += (New-PfaHostFromVmHost -esxi (get-vmhost $esxiConnections[$i].name) -FC:$fc -ErrorAction Stop).name
+    }
+    catch
+    { 
+        $scriptCleanupStep = 1
+        cleanup-pfaVcf
+        throw $_.Exception
+    }      
+  }
+  $groupName = ("vCF-WorkloadDomain-" + (get-random -Maximum 9999 -Minimum 1000))
+  try{
+    $hostGroup = New-PfaHostGroup -Array $flasharray -Hosts $fahosts -Name $groupName -ErrorAction Stop
+  }
+  catch
+  {
+     $scriptCleanupStep = 2
+     cleanup-pfaVcf
+     throw $_.Exception
+  }
+  try
+  {
+      $newVol = New-PfaVolume -Array $flasharray -Size $volSize -VolumeName $datastoreName -ErrorAction Stop
+  }
+  catch
+  {
+      $scriptCleanupStep = 3
+      cleanup-pfaVcf
+      throw $_.Exception
+  }
+  $Global:CurrentFlashArray = $flasharray
+  try
+  {
+      New-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newVol.name -HostGroupName $groupName -ErrorAction Stop|Out-Null
+  }
+  catch
+  {
+      $scriptCleanupStep = 4
+      cleanup-pfaVcf
+      throw $_.Exception
+  }
+  $newNAA =  "naa.624a9370" + $newVol.serial.toLower()
+  $esxi = $esxiConnections |Select-Object -Last 1
+  get-vmhost $esxi.name |Get-VMHostStorage -RescanAllHba  |Out-Null
+  try 
+  {
+      $newVMFS = get-vmhost $esxi.name |new-datastore -name $datastoreName -vmfs -Path $newNAA -FileSystemVersion 6 -ErrorAction Stop
+  }
+  catch 
+  {
+      $scriptCleanupStep = 5
+      cleanup-pfaVcf
+      throw $_.Exception
+  }
+  foreach ($esxiConnection in $esxiConnections)
+  {
+     get-vmhost $esxiConnection.name | Get-VMHostStorage -RescanAllHba  |Out-Null
+  } 
+  $scriptCleanupStep = 7
+  cleanup-pfaVcf
+  return $hostGroup
+}
 
 #aliases to not break compatibility with original cmdlet names
 New-Alias -Name New-pureflasharrayRestSession -Value New-PfaRestSession
@@ -1893,6 +2083,46 @@ New-Alias -Name Set-clusterPureFAiSCSI -Value Set-clusterPfaiSCSI
 
 
 #### helper functions
+function cleanup-pfaVcf{
+  if ($scriptCleanupStep -lt 6)
+  {
+    if ($scriptCleanupStep -eq 5)
+    {
+        Remove-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $datastoreName -HostGroupName $groupName |Out-Null
+    }
+    if ($scriptCleanupStep -ge 4)
+    {
+      Remove-PfaVolumeOrSnapshot -Array $flasharray -Name $datastoreName |Out-Null
+      Remove-PfaVolumeOrSnapshot -Array $flasharray -Name $datastoreName -Eradicate |Out-Null
+    }
+    if ($scriptCleanupStep -ge 1)
+    {
+      foreach ($faHost in $faHosts)
+      {
+        Remove-PfaHost -Array $flasharray -Name $faHost |out-null
+      }
+    }
+    if ($scriptCleanupStep -ge 3)
+    {
+      remove-PfaHostGroup -Array $flasharray -Name $groupName |out-null
+    }
+  }
+  if ($scriptCleanupStep -ge 0)
+  {
+    if ($esxiConnections.count -eq 0)
+    {
+      return
+    }
+    else
+    {
+        foreach ($esxiConnection in $esxiConnections)
+        {
+          $esxiConnection | disconnect-viserver -confirm:$false |out-null
+        }
+    }
+  }
+  return
+}
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
     {
