@@ -1936,10 +1936,12 @@ function Initialize-PfaVcfWorkloadDomain {
       [Parameter(Position=2,mandatory=$true)]
       [string]$datastoreName,
 
-      [Parameter(Position=3)]
+      [Parameter(Position=3,ParameterSetName="sizeInGB")]
+      [ValidateRange("Positive")]
       [int]$sizeInGB,
 
-      [Parameter(Position=4)]
+      [Parameter(Position=4,ParameterSetName="sizeInTB")]
+      [ValidateRange("Positive")]
       [int]$sizeInTB,
 
       [Parameter(Position=5)]
@@ -1951,13 +1953,6 @@ function Initialize-PfaVcfWorkloadDomain {
     throw "Please indicate protocol type. Currently only -fc is a supported option."
   }
   $ErrorActionPreference = "stop"
-  if (($sizeInGB -eq 0) -and ($sizeInTB -eq 0))
-  {
-      throw "Please enter a size in GB or TB"
-  }
-  elseif (($sizeInGB -ne 0) -and ($sizeInTB -ne 0)) {
-      throw "Please only enter a size in TB or GB, not both."
-  }
   elseif ($sizeInGB -ne 0) {
       $volSize = $sizeInGB * 1024 *1024 *1024   
   }
