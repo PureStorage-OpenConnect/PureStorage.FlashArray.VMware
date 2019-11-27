@@ -3,9 +3,9 @@
 	 Created with: 	VSCode
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
-	 Filename:     	PureStorage.FlashArray.VMware.psd1
-	 Version:				1.3.0.1
-	 Copyright:			2019 Pure Storage, Inc.
+	 Filename:     	PureStorage.FlashArray.VMware.Software.psd1
+	 Version:		1.0.0.1
+	 Copyright:		2019 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStoragePowerShell
 	Disclaimer
@@ -26,13 +26,13 @@
 @{
 	
 	# Script module or binary module file associated with this manifest.
-	RootModule = ''
+	RootModule = 'PureStorage.FlashArray.VMware.Software.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.3.0.1'
+	ModuleVersion = '1.0.0.1'
 	
 	# ID used to uniquely identify this module
-	GUID = 'a38571e9-918e-4542-bebc-b5294ad4ffbb'
+	GUID = '1a8ffc6d-02ae-4406-b51e-73c8d543b7ac'
 	
 	# Author of this module
 	Author = 'Pure Storage'
@@ -44,10 +44,10 @@
 	Copyright = '(c) 2019 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
-	Description = 'Pure Storage FlashArray VMware PowerCLI integration with Windows PowerShell.'
+	Description = 'Pure Storage FlashArray VMware PowerShell software management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '3.0'
+	PowerShellVersion = '5.0'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -61,18 +61,9 @@
 	# Minimum version of the common language runtime (CLR) required by this module
 	CLRVersion = ''
 	
-	# Processor architecture (None, X86, Amd64) required by this module
-	#ProcessorArchitecture = 'X86'
-	
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="1.0.0.1"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="1.0.0.3"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.4.1.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.VVol";"ModuleVersion"="1.3.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Pure1";"ModuleVersion"="1.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="1.0.0.1"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -91,13 +82,13 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = ''
+	FunctionsToExport = 'Install-PfavSpherePlugin','Get-PfavSpherePlugin','Deploy-PfaAppliance','Get-PfaAppliance'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
 	
 	# Variables to export from this module
-	VariablesToExport = '*'
+	VariablesToExport = ''
 	
 	# Aliases to export from this module
 	AliasesToExport = ''
