@@ -742,6 +742,11 @@ function Deploy-PfaAppliance {
       [switch]$silent
   )
   $ErrorActionPreference = "stop"
+  $vCenterVersion = $Global:DefaultVIServer | Select-Object Version
+  if (($vCenterVersion.Version -eq "6.0.0") -and ($ovaPassword.length -ge 1))
+  {
+      Throw "vCenter version 6.0 does not support the APIs that are required to change the default password. Please re-run the deployment without specifying a password. You will then need to manually SSH in or use the VM console to change the default password to one of your own."
+  }
   if ($null -eq $portGroup)
   {
     throw "Please pass in a virtual port group with get-virtualportgroup"
@@ -891,9 +896,13 @@ function Deploy-PfaAppliance {
     Set-PfaVMKeystrokes -VMName $vm.name -StringInput $UnsecurePassword -ReturnCarriage $true
     Set-PfaVMKeystrokes -VMName $vm.name -StringInput $UnsecurePassword -ReturnCarriage $true
     Set-PfaVMKeystrokes -VMName $vm.name -StringInput "exit" -ReturnCarriage $true
+    $creds = New-Object System.Management.Automation.PSCredential ("pureuser", $ovaPassword)
+    return (Get-PfaAppliance -vm $vm -applianceCredentials $creds)
   }
-  $creds = New-Object System.Management.Automation.PSCredential ("pureuser", $ovaPassword)
-  return (Get-PfaAppliance -vm $vm -applianceCredentials $creds)
+  else {
+    return get-vm $vm.name
+  }
+  
 }
 
 function Get-PfaAppliance {
@@ -1120,6 +1129,11 @@ Class PureStorageCollector : PureStorageAppliance{
   }
   [vCenterStatus[]] ImportConfig ([PureStorageCollector]$sourceCollector)
   {
+    $vCenterVersion = $Global:DefaultVIServer | Select-Object Version
+    if ($vCenterVersion.Version -eq "6.0.0")
+    {
+        Throw "vCenter version 6.0 does not support the APIs that are required to import the configuration of another appliance. The simplest option is to manually add the vCenters to collector via .AddvCenter(<vCenter FQND>,<vCenter credentials>) method."
+    }
     Reset-VMConsole($this.VirtualMachine)
     Start-sleep 1
     $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($this.ovaCreds.Password)
