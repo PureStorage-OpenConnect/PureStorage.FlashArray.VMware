@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Pure1.psd1
-	 Version:		1.0.0.0
+	 Version:		1.0.0.1
 	 Copyright:		2019 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStoragePowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Pure1.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.0.0.0'
+	ModuleVersion = '1.0.0.1'
 	
 	# ID used to uniquely identify this module
 	GUID = '68d4d2e1-8465-4011-885a-bbf7276257f6'
@@ -65,7 +65,7 @@
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
         @{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.1.0.0"}
-        @{"ModuleName"="Cody.PureStorage.Pure1";"ModuleVersion"="1.5.1.0"}
+        @{"ModuleName"="PureStorage.Pure1";"ModuleVersion"="1.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
