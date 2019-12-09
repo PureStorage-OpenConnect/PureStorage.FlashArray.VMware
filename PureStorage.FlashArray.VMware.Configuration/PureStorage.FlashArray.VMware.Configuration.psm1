@@ -9,10 +9,25 @@ function New-PfaConnection {
   .OUTPUTS
     Returns the FlashArray connection.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  05/23/2019
-    Purpose/Change: Updated for new connection mgmt
+    Creation Date:  12/08/2019
+    Purpose/Change: Added parameter sets
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    
+    Connects to a FlashArray and stores it as the default connection in $Global:DefaultFlashArray and in $Global:AllFlashArrays
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nonDefaultArray
+    
+    Connects to a FlashArray and stores it as the default connection only in $Global:AllFlashArrays
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nonDefaultArray -ignoreCertificateError
+    
+    Connects to a FlashArray and stores it as the default connection only in $Global:AllFlashArrays and ignores certificate errors.
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -32,24 +47,16 @@ function New-PfaConnection {
       [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
       [System.Management.Automation.PSCredential]$credentials,
 
-      [Parameter(Position=2)]
+      [Parameter(ParameterSetName='Primary',Mandatory = $true)]
       [switch]$defaultArray,
 
-      [Parameter(Position=3)]
+      [Parameter(ParameterSetName='Non-Primary',Mandatory = $true)]
       [switch]$nonDefaultArray,
 
-      [Parameter(Position=4)]
+      [Parameter(Position=3)]
       [switch]$ignoreCertificateError
   )
   Begin {
-      if (($true -eq $defaultArray) -and ($true -eq $nonDefaultArray))
-      {
-          throw "You can only specify defaultArray or nonDefaultArray, not both."
-      }
-      if (($false -eq $defaultArray) -and ($false -eq $nonDefaultArray))
-      {
-          throw "Please specify this to be either the new default array or a non-default array"
-      }
       $ErrorActionPreference = "stop"
   }
   Process {
@@ -73,17 +80,44 @@ function Get-PfaDatastore {
   .SYNOPSIS
     Retrieves all Pure Storage FlashArray datastores
   .DESCRIPTION
-    Will return all FlashArray-based datastores, either VMFS or VVols, and if specified just for a particular FlashArray connection.
+    Will return all FlashArray-based datastores, either VMFS or vVols, and if specified just for a particular FlashArray connection.
   .INPUTS
-    A FlashArray connection, a cluster or VMhost, and filter of VVol or VMFS. All optional.
+    A FlashArray connection, a cluster or VMhost, and filter of vVol or VMFS. All optional.
   .OUTPUTS
     Returns the relevant datastores.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  06/04/2019
-    Purpose/Change: First release
-
+    Creation Date:  12/08/2019
+    Purpose/Change: Added parameter sets
+  .EXAMPLE
+    PS C:\ Get-PfaDatastores 
+    
+    Returns all of the FlashArray datastores for the whole connected vCenter
+  .EXAMPLE
+    PS C:\ Get-PfaDatastores -vvol
+    
+    Returns all of the FlashArray vVol datastores for the whole connected vCenter
+  .EXAMPLE
+    PS C:\ Get-PfaDatastores -vvol -cluster (get-cluster Infrastructure)
+    
+    Returns all of the FlashArray vVol datastores for the specified VMware cluster
+  .EXAMPLE
+    PS C:\ Get-PfaDatastores -vmfs
+    
+    Returns all of the FlashArray VMFS datastores for the whole connected vCenter
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    PS C:\ Get-PfaDatastores -flasharray $fa
+    
+    Returns all of the datastores hosted on a particular FlashArray for the whole connected vCenter
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    PS C:\ Get-PfaDatastores -vmfs -flasharray $fa
+    
+    Returns all of the VMFS datastores hosted on a particular FlashArray for the whole connected vCenter
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
   scripts is tested and working in my environment, it is recommended that you test 
@@ -93,28 +127,30 @@ function Get-PfaDatastore {
   ************************************************************************
   #>
 
-  [CmdletBinding()]
+  [CmdletBinding(DefaultParameterSetName="All")]
   Param(
 
-      [Parameter(Position=0,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='Cluster',Position=0,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='Host',Position=0,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='All',Position=0,ValueFromPipeline=$True)]
       [PurePowerShell.PureArray]$flasharray,
     
-      [Parameter(Position=1)]
+      [Parameter(ParameterSetName='Cluster',Position=1)]
+      [Parameter(ParameterSetName='Host',Position=1)]
+      [Parameter(ParameterSetName='All',Position=1)]
       [switch]$vvol,
 
-      [Parameter(Position=2)]
+      [Parameter(ParameterSetName='Cluster',Position=2)]
+      [Parameter(ParameterSetName='Host',Position=2)]
+      [Parameter(ParameterSetName='All',Position=2)]
       [switch]$vmfs,
 
-      [Parameter(Position=3,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='Cluster',ValueFromPipeline=$True)]
       [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
       
-      [Parameter(Position=4,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='Host',ValueFromPipeline=$True)]
       [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi
   )
-  if (($null -ne $esxi) -and ($null -ne $cluster))
-  {
-      throw "Please only pass in an ESXi host or a cluster, or neither"
-  }
   if ($null -ne $esxi)
   {
       $datastores = $esxi | Get-datastore
@@ -170,7 +206,7 @@ function Get-PfaDatastore {
 function Get-PfaConnectionOfDatastore {
 <#
 .SYNOPSIS
-  Takes in a VVol or VMFS datastore, one or more FlashArray connections and returns the correct connection.
+  Takes in a vVol or VMFS datastore, one or more FlashArray connections and returns the correct connection.
 .DESCRIPTION
   Will iterate through any connections stored in $Global:AllFlashArrays or whatever is passed in directly.
 .INPUTS
@@ -178,11 +214,19 @@ function Get-PfaConnectionOfDatastore {
 .OUTPUTS
   Returns the correct FlashArray connection.
 .NOTES
-  Version:        1.0
+  Version:        1.1
   Author:         Cody Hosterman https://codyhosterman.com
-  Creation Date:  05/26/2019
-  Purpose/Change: Updated for new connection mgmt
-
+  Creation Date:  12/08/2019
+  Purpose/Change: Added parameter validation
+.EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-x70-1 -credentials $faCreds -nondefaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-x70-2 -credentials $faCreds -nondefaultArray
+    PS C:\ $ds = get-datastore MyDatastore
+    PS C:\ Get-PfaConnectionOfDatastore -datastore $ds
+    
+    Returns the connection of the FlashArray that hosts the specified datastore
 *******Disclaimer:******************************************************
 This scripts are offered "as is" with no warranty.  While this 
 scripts is tested and working in my environment, it is recommended that you test 
@@ -199,52 +243,49 @@ Param(
   [PurePowerShell.PureArray[]]$flasharrays,
 
   [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
+  [ValidateScript({($_.Type -eq 'VMFS') -or ($_.Type -eq 'VVOL')})]
   [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
 )
-if ($null -eq $flasharrays)
-{
-    $flasharrays = getAllFlashArrays 
-}
-if ($datastore.Type -eq 'VMFS')
-{
-    $lun = $datastore.ExtensionData.Info.Vmfs.Extent.DiskName |select-object -unique
-    if ($lun -like 'naa.624a9370*')
-    { 
-        $volserial = ($lun.ToUpper()).substring(12)
-        foreach ($flasharray in $flasharrays)
-        { 
-            $pureVolumes = Get-PfaVolumes -Array  $flasharray
-            $purevol = $purevolumes | where-object { $_.serial -eq $volserial }
-            if ($null -ne $purevol.name)
-            {
-                return $flasharray
-            }
-        }
-    }
-    else 
-    {
-        throw "This VMFS is not hosted on FlashArray storage."
-    }
-}
-elseif ($datastore.Type -eq 'VVOL') 
-{
-    $datastoreArraySerial = $datastore.ExtensionData.Info.VvolDS.StorageArray[0].uuid.Substring(16)
-    foreach ($flasharray in $flasharrays)
-    {
-        $arraySerial = (Get-PfaArrayAttributes -array $flasharray).id
-        if ($arraySerial -eq $datastoreArraySerial)
-        {
-            $Global:CurrentFlashArray = $flasharray
-            return $flasharray
-        }
-    }
-}
-else 
-{
-    throw "This is not a VMFS or VVol datastore."
-}
-$Global:CurrentFlashArray = $null
-throw "The datastore was not found on any of the FlashArray connections."
+  if ($null -eq $flasharrays)
+  {
+      $flasharrays = getAllFlashArrays 
+  }
+  if ($datastore.Type -eq 'VMFS')
+  {
+      $lun = $datastore.ExtensionData.Info.Vmfs.Extent.DiskName |select-object -unique
+      if ($lun -like 'naa.624a9370*')
+      { 
+          $volserial = ($lun.ToUpper()).substring(12)
+          foreach ($flasharray in $flasharrays)
+          { 
+              $pureVolumes = Get-PfaVolumes -Array  $flasharray
+              $purevol = $purevolumes | where-object { $_.serial -eq $volserial }
+              if ($null -ne $purevol.name)
+              {
+                  return $flasharray
+              }
+          }
+      }
+      else 
+      {
+          throw "This VMFS is not hosted on FlashArray storage."
+      }
+  }
+  elseif ($datastore.Type -eq 'VVOL') 
+  {
+      $datastoreArraySerial = $datastore.ExtensionData.Info.VvolDS.StorageArray[0].uuid.Substring(16)
+      foreach ($flasharray in $flasharrays)
+      {
+          $arraySerial = (Get-PfaArrayAttributes -array $flasharray).id
+          if ($arraySerial -eq $datastoreArraySerial)
+          {
+              $Global:CurrentFlashArray = $flasharray
+              return $flasharray
+          }
+      }
+  }
+  $Global:CurrentFlashArray = $null
+  throw "The datastore was not found on any of the FlashArray connections."
 }
 function Get-PfaConnectionFromArrayId {
   <#
@@ -261,7 +302,15 @@ function Get-PfaConnectionFromArrayId {
     Author:         Cody Hosterman https://codyhosterman.com
     Creation Date:  06/10/2019
     Purpose/Change: First release
-
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-x70-1 -credentials $faCreds -nondefaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-x70-2 -credentials $faCreds -nondefaultArray
+    PS C:\ $arrayID = "7b5ecbdc-9241-42cc-8648-95e4f6d311c6"
+    PS C:\ Get-PfaConnectionFromArrayId -arrayId $arrayID
+    
+    Returns the connection of the FlashArray of the specified FlashArray serial number
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
   scripts is tested and working in my environment, it is recommended that you test 
@@ -308,7 +357,12 @@ function New-PfaRestSession {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $restSession = New-PfaRestSession -flasharray $fa 
+      
+      Creates a direct REST session to the FlashArray for REST operations that are not supported by the PowerShell SDK yet. Returns it and also stores it in $global:faRestSession
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -363,7 +417,10 @@ function Remove-PfaRestSession {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $restSession | Remove-PfaRestSession -flasharray $fa 
+      
+      Disconnects a direct REST session to a FlashArray. Does not disconnect the PowerShell session.
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -401,11 +458,32 @@ function New-PfaHostFromVmHost {
     .OUTPUTS
       Returns new FlashArray host object.
     .NOTES
-      Version:        2.0
+      Version:        3.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/08/2019
+      Purpose/Change: Added parameter sets 
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ new-pfahostfromVmhost -esxi $esxi -iscsi
+
+      Creates a new iSCSI host object on the default FlashArray connection from the specified ESXi host 
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ new-pfahostfromVmhost -esxi $esxi -fc
+
+      Creates a new Fibre Channel host object on the default FlashArray connection from the specified ESXi host 
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ New-PfaConnection -endpoint flasharray-x50-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ new-pfahostfromVmhost -esxi $esxi -iscsi -flasharray $Global:AllFlashArrays
+
+      Creates a new iSCSI host object on all of the connected FlashArrays from the specified ESXi host 
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -420,47 +498,16 @@ function New-PfaHostFromVmHost {
             [Parameter(Position=0,mandatory=$true)]
             [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi,
 
-            [Parameter(Position=1)]
-            [string]$protocolType,
-
-            [Parameter(Position=2,ValueFromPipeline=$True)]
+            [Parameter(Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray,
 
-            [Parameter(Position=3)]
+            [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
             [switch]$iscsi,
 
-            [Parameter(Position=4)]
+            [Parameter(ParameterSetName='FC',mandatory=$true)]
             [switch]$fc
     )
     Begin {
-      if (($protocolType -eq "FC") -and ($protocolType -eq "iSCSI"))
-      {
-          Write-Warning -Message "The protocolType parameter is being deprecated, please use the -fc or -iscsi switch parameters instead."
-      }
-      if (($protocolType -ne "FC") -and ($protocolType -ne "iSCSI") -and ($iscsi -ne $true) -and ($fc -ne $true))
-      {
-          throw 'No valid protocol entered. Please add the -fc or -iscsi switch parameter"'
-      }
-      if (($iscsi -eq $true) -and ($protocolType -eq $true))
-      {
-          throw "You cannot use both the -fc and -iscsi switch"
-      }
-      if (($iscsi -eq $true) -and ($protocolType -eq "FC"))
-      {
-          throw "You cannot use the iSCSI switch parameter and specify FC in the protocolType option. The protocolType parameter is being deprecated."
-      }
-      if (($fc -eq $true) -and ($protocolType -eq "iSCSI"))
-      {
-          throw "You cannot use the FC switch parameter and specify iSCSI in the protocolType option. The protocolType parameter is being deprecated."
-      }
-      if ($protocolType -eq "FC")
-      {
-        $fc = $true
-      }
-      if ($protocolType -eq "iSCSI")
-      {
-        $iscsi = $true
-      }
       $vmHosts = @()
     } 
     Process 
@@ -532,6 +579,22 @@ function New-PfaHostFromVmHost {
                     }
                 }
             }
+            else {
+              if ($true -eq $iscsi)
+              {
+                if ($newFaHost.wwn.count -gt 0)
+                {
+                  throw "The host $($esxi.NetworkInfo.HostName) is already configured on array $($fa.endpoint) with FibreChannel. Multiple-protocols at once are not supported by VMware."
+                }
+              }
+              elseif ($true -eq $fc) 
+              {
+                if ($newFaHost.iqn.count -gt 0)
+                {
+                  throw "The host $($esxi.NetworkInfo.HostName) is already configured on array $($fa.endpoint) with iSCSI. Multiple-protocols at once are not supported by VMware."
+                }
+              }
+            }
         }
     }
     End {
@@ -553,7 +616,20 @@ function Get-PfaHostFromVmHost {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ get-pfahostfromVmhost -esxi $esxi 
+
+      Returns the host object from the default FlashArray connection from the specified ESXi host 
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ get-pfahostfromVmhost -esxi $esxi -flasharray $fa
+
+      Returns the host object from the specified FlashArray connection from the specified ESXi host 
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -644,7 +720,20 @@ function Get-PfaHostGroupfromVcCluster {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ get-PfaHostGroupfromVcCluster -cluster $cluster
+
+      Returns the host group object from the default FlashArray for the specified VMware ESXi cluster.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ get-PfaHostGroupfromVcCluster -cluster $cluster -flasharray $fa
+
+      Returns the host group object from the specified FlashArray for the specified VMware ESXi cluster.
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -716,7 +805,27 @@ function New-PfaHostGroupfromVcCluster {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ new-PfaHostGroupfromVcCluster -cluster $cluster -iscsi
+
+      Creates a host group and iSCSI-based hosts for each ESXi server on the default FlashArray for the specified VMware ESXi cluster.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ new-PfaHostGroupfromVcCluster -cluster $cluster -fc
+
+      Creates a host group and Fibre Channel-based hosts for each ESXi server on the default FlashArray for the specified VMware ESXi cluster.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ new-PfaHostGroupfromVcCluster -cluster $cluster -fc -flasharray $fa
+
+      Creates a host group and Fibre Channel-based hosts for each ESXi server on the specified FlashArray for the specified VMware ESXi cluster.
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -730,49 +839,18 @@ function New-PfaHostGroupfromVcCluster {
     Param(
         [Parameter(Position=0,mandatory=$true)]
         [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
-        
-        [Parameter(Position=1)]
-        [string]$protocolType,
 
-        [Parameter(Position=2,ValueFromPipeline=$True)]
+        [Parameter(Position=1,ValueFromPipeline=$True)]
         [PurePowerShell.PureArray[]]$flasharray,
 
-        [Parameter(Position=3)]
+        [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
         [switch]$iscsi,
 
-        [Parameter(Position=4)]
+        [Parameter(ParameterSetName='FC',mandatory=$true)]
         [switch]$fc
     )
     Begin {
-      if (($protocolType -eq "FC") -and ($protocolType -eq "iSCSI"))
-      {
-          Write-Warning -Message "The protocolType parameter is being deprecated, please use the -fc or -iscsi switch parameters instead."
-      }
-      if (($protocolType -ne "FC") -and ($protocolType -ne "iSCSI") -and ($iscsi -ne $true) -and ($protocolType -ne $true))
-      {
-          throw 'No valid protocol entered. Please add the -fc or -iscsi switch parameter"'
-      }
-      if (($iscsi -eq $true) -and ($protocolType -eq $true))
-      {
-          throw "You cannot use both the -fc and -iscsi switch"
-      }
-      if (($iscsi -eq $true) -and ($protocolType -eq "FC"))
-      {
-          throw "You cannot use the iSCSI switch parameter and specify FC in the protocolType option. The protocolType parameter is being deprecated."
-      }
-      if (($fc -eq $true) -and ($protocolType -eq "iSCSI"))
-      {
-          throw "You cannot use the FC switch parameter and specify iSCSI in the protocolType option. The protocolType parameter is being deprecated."
-      }
-      if ($protocolType -eq "FC")
-      {
-        $fc = $true
-      }
-      if ($protocolType -eq "iSCSI")
-      {
-        $iscsi = $true
-      }
-      $pfaHostGroups = @()
+       $pfaHostGroups = @()
     } 
     Process 
     {
@@ -890,7 +968,28 @@ function Set-VmHostPfaiSCSI{
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ Set-VmHostPfaiSCSI -esxi $esxi 
+
+      Configures iSCSI on an ESXi server for the default FlashArray
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ Set-VmHostPfaiSCSI -esxi $esxi -flasharray $fa
+
+      Configures iSCSI on an ESXi server for the specified FlashArray
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ New-PfaConnection -endpoint flasharray-x50-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $esxi = get-vmhost esxi-01.purecloud.com
+      PS C:\ Set-VmHostPfaiSCSI -esxi $esxi -flasharray $Global:AllFlashArrays
+
+      Configures iSCSI on an ESXi server for all of the connected FlashArrays 
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -990,7 +1089,28 @@ function Set-ClusterPfaiSCSI {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ Set-ClusterPfaiSCSI -cluster $cluster 
+
+      Configures iSCSI on all of the ESXi servers in a cluster for the default FlashArray
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ Set-ClusterPfaiSCSI -cluster $cluster -flasharray $fa
+
+      Configures iSCSI on all of the ESXi servers in a cluster for the specified FlashArray
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ New-PfaConnection -endpoint flasharray-x50-2 -credentials $faCreds -nonDefaultArray
+      PS C:\ $cluster = get-cluster Infrastructure
+      PS C:\ Set-ClusterPfaiSCSI -cluster $cluster -flasharray $Global:AllFlashArrays
+
+      Configures iSCSI on all of the ESXi servers in a cluster for all of the connected FlashArrays 
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
