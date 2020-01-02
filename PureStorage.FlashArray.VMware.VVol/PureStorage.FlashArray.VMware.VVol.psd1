@@ -3,11 +3,11 @@
 	 Created with: 	VSCode
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
-	 Filename:     	PureStorage.FlashArray.VMware.VVol.psd1
-	 Version:		1.3.0.0
-	 Copyright:		2019 Pure Storage, Inc.
+	 Filename:     	PureStorage.FlashArray.VMware.vVol.psd1
+	 Version:		1.4.0.0
+	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStoragePowerShell
+	 Module Name: PureStorageFlashArrayVMwarevVolPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -26,10 +26,10 @@
 @{
 	
 	# Script module or binary module file associated with this manifest.
-	RootModule = 'PureStorage.FlashArray.VMware.VVol.psm1'
+	RootModule = 'PureStorage.FlashArray.VMware.vVol.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.3.0.0'
+	ModuleVersion = '1.4.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '105e97db-98b4-41be-be35-17ba25a1ede5'
@@ -41,13 +41,13 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2019 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
-	Description = 'Pure Storage FlashArray VMware PowerShell VVol management.'
+	Description = 'Pure Storage FlashArray VMware PowerShell vVol management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '3.0'
+	PowerShellVersion = '5.0'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -64,7 +64,8 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.1.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.5.0.0"}
+		@{"ModuleName"="VMware.VimAutomation.Core";"ModuleVersion"="11.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -83,7 +84,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromHardDisk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotsFromVvolHardDisk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore','Initialize-PfaVVols'
+	FunctionsToExport = 'Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromVmdk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotFromVvolVmdk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore','Initialize-PfaVVols'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -92,7 +93,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'update-faVvolVmVolumeGroup','Get-faSnapshotsFromVvolHardDisk','Copy-faVvolVmdkToNewVvolVmdk','Copy-faSnapshotToExistingVvolVmdk','Copy-faSnapshotToNewVvolVmdk','Copy-faVvolVmdkToExistingVvolVmdk','new-faSnapshotOfVvolVmdk','Get-faVolumeNameFromVvolUuid'
+	AliasesToExport = 'update-faVvolVmVolumeGroup','Get-faSnapshotsFromVvolHardDisk','Copy-faVvolVmdkToNewVvolVmdk','Copy-faSnapshotToExistingVvolVmdk','Copy-faSnapshotToNewVvolVmdk','Copy-faVvolVmdkToExistingVvolVmdk','new-faSnapshotOfVvolVmdk','Get-faVolumeNameFromVvolUuid','Get-PfaSnapshotsFromVvolHarddisk','Get-VvolUuidFromHardDisk'
 	
 	# List of all modules packaged with this module
 	ModuleList = @()

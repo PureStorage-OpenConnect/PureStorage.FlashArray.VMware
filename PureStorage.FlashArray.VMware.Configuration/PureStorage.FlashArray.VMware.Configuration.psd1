@@ -4,10 +4,10 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Configuration.psd1
-	 Version:		1.4.2.0
-	 Copyright:		2019 Pure Storage, Inc.
+	 Version:		1.5.0.0
+	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStoragePowerShell
+	 Module Name: PureStorageFlashArrayVMwareConfigurationPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Configuration.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.4.2.0'
+	ModuleVersion = '1.5.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '8f427302-6faf-42de-9f58-09276c3343cb'
@@ -41,7 +41,7 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2019 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell configuration management.'
@@ -64,6 +64,7 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="VMware.VimAutomation.Core";"ModuleVersion"="11.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module

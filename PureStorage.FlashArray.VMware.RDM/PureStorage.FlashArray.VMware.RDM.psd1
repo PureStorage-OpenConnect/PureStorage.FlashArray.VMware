@@ -4,10 +4,10 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.RDM.psd1
-	 Version:		1.0.0.3
-	 Copyright:		2019 Pure Storage, Inc.
+	 Version:		1.1.0.0
+	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStoragePowerShell
+	 Module Name: PureStorageFlashArrayVMwareRDMPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.RDM.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.0.0.3'
+	ModuleVersion = '1.1.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '49e8405f-e78f-4b5d-b121-113d5ad37098'
@@ -41,13 +41,13 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2019 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell RDM management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '3.0'
+	PowerShellVersion = '5.0'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -64,8 +64,9 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.0.1.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.VVol";"ModuleVersion"="1.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.5.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.vVol";"ModuleVersion"="1.4.0.0"}
+		@{"ModuleName"="VMware.VimAutomation.Core";"ModuleVersion"="11.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -84,7 +85,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'new-pfaVolRdm','get-pfaVolfromRDM','get-pfaConnectionfromRDM','new-pfaVolRdmSnapshot','get-pfaVolRDMSnapshot','copy-pfaSnapshotToRDM','set-pfaVolRDMCapacity','remove-pfaVolRDM','convert-pfaVolRDMtoVvol'
+	FunctionsToExport = 'Convert-PfaRDMToVvol','Remove-PfaRDM','Set-PfaRDMCapacity','Copy-PfaSnapshotToRDM','Get-PfaRDMSnapshot','New-PfaRDMSnapshot','Get-PfaConnectionFromRDM','Get-PfaRDMVol','New-PfaRDM'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -93,7 +94,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'new-faVolRdm','set-faVolRDMCapacity','copy-faSnapshotToRDM','get-faVolRDMSnapshots','new-faVolRdmSnapshot','get-faVolfromRDM','remove-faVolRDM','convert-faVolRDMtoVvol'
+	AliasesToExport = 'new-faVolRdm','set-faVolRDMCapacity','copy-faSnapshotToRDM','get-faVolRDMSnapshots','new-faVolRdmSnapshot','get-faVolfromRDM','remove-faVolRDM','convert-faVolRDMtoVvol','new-pfaVolRdm','set-pfaVolRDMCapacity','get-pfaVolRDMSnapshot','new-pfaVolRdmSnapshot','get-pfaVolfromRDM','remove-pfaVolRDM','convert-pfaVolRDMtoVvol'
 	
 	# List of all modules packaged with this module
 	ModuleList = @()

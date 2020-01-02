@@ -1,3 +1,4 @@
+$ErrorActionPreference = 'Stop'
 function New-PfaConnection {
   <#
   .SYNOPSIS
@@ -243,7 +244,15 @@ Param(
   [PurePowerShell.PureArray[]]$flasharrays,
 
   [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
-  [ValidateScript({($_.Type -eq 'VMFS') -or ($_.Type -eq 'VVOL')})]
+  [ValidateScript({
+    if (($_.Type -ne 'VMFS') -and ($_.Type -ne 'VVOL'))
+    {
+        throw "The entered datastore is not a VMFS or vVol datastore. It is type $($_.Type). Please only enter a VMFS or vVol datastore"
+    }
+    else {
+      $true
+    }
+  })]
   [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
 )
   if ($null -eq $flasharrays)
@@ -495,10 +504,12 @@ function New-PfaHostFromVmHost {
 
     [CmdletBinding()]
     Param(
-            [Parameter(Position=0,mandatory=$true)]
+            [Parameter(ParameterSetName='iSCSI',Position=0,mandatory=$true)]
+            [Parameter(ParameterSetName='FC',Position=0,mandatory=$true)]
             [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi,
 
-            [Parameter(Position=1,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='iSCSI',Position=1,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='FC',Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray,
 
             [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
@@ -837,10 +848,12 @@ function New-PfaHostGroupfromVcCluster {
 
     [CmdletBinding()]
     Param(
-        [Parameter(Position=0,mandatory=$true)]
+        [Parameter(ParameterSetName='iSCSI',Position=0,mandatory=$true)]
+        [Parameter(ParameterSetName='FC',Position=0,mandatory=$true)]
         [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
 
-        [Parameter(Position=1,ValueFromPipeline=$True)]
+        [Parameter(ParameterSetName='iSCSI',Position=1,ValueFromPipeline=$True)]
+        [Parameter(ParameterSetName='FC',Position=1,ValueFromPipeline=$True)]
         [PurePowerShell.PureArray[]]$flasharray,
 
         [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
@@ -860,7 +873,6 @@ function New-PfaHostGroupfromVcCluster {
         }
         foreach ($fa in $flasharray)
         {
-
             $hostGroup =  Get-PfaHostGroupfromVcCluster -flasharray $fa -ErrorAction SilentlyContinue -cluster $cluster
             if ($hostGroup.count -gt 1)
             {
@@ -889,10 +901,32 @@ function New-PfaHostGroupfromVcCluster {
                   }
                 }
                 catch {}
+                if ($null -ne $faHost)
+                {
+                  if ($iscsi -eq $true)
+                  {
+                    if ($fahost.wwn.count -ge 1)
+                    {
+                      throw "The host $($esxiHost.NetworkInfo.HostName) is already configured on the FlashArray for FC. Mixed mode is not supported by VMware."
+                    }
+                  }
+                  else {
+                    if ($fahost.iqn.count -ge 1)
+                    {
+                      throw "The host $($esxiHost.NetworkInfo.HostName) is already configured on the FlashArray for iSCSI. Mixed mode is not supported by VMware."
+                    }
+                  }
+                }
                 if ($null -eq $faHost)
                 {
                     try {
-                        $faHost = New-PfaHostFromVmHost -flasharray $fa -iscsi:$iscsi -fc:$fc -ErrorAction Stop -esxi $esxiHost
+                        if ($iscsi -eq $true)
+                        {
+                          $faHost = New-PfaHostFromVmHost -flasharray $fa -iscsi:$iscsi -ErrorAction Stop -esxi $esxiHost
+                        }
+                        else {
+                          $faHost = New-PfaHostFromVmHost -flasharray $fa -fc:$fc -ErrorAction Stop -esxi $esxiHost
+                        }
                         $faHosts += $faHost
                     }
                     catch {

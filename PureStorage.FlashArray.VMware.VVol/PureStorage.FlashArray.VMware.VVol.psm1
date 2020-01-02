@@ -1,3 +1,4 @@
+import-module VMware.VimAutomation.Storage
 function Update-PfaVvolVmVolumeGroup {
     <#
     .SYNOPSIS
@@ -9,11 +10,26 @@ function Update-PfaVvolVmVolumeGroup {
     .OUTPUTS
       Returns the FlashArray volume names of the input VM.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  06/03/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/23/2019
+      Purpose/Change: Parameter sets and validation
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\  Update-PfaVvolVmVolumeGroup -vm (get-vm myVM)
+      
+      Updated the volume group for a virtual machine on the default FlashArray
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\  Update-PfaVvolVmVolumeGroup -datastore (get-datastore myvVolDS)
+      
+      Updated all of the volume groups on a given vVol datastore
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\  Update-PfaVvolVmVolumeGroup -vm (get-cluster myCluster | get-vm)
+      
+      Updated all of the volume groups for the Pure Storage vVol VMs in the specified cluster
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -25,10 +41,23 @@ function Update-PfaVvolVmVolumeGroup {
 
     [CmdletBinding()]
     Param(
-            [Parameter(Position=0,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='VM',Position=0,ValueFromPipeline=$True,mandatory=$true)]
             [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine[]]$vm,
 
-            [Parameter(Position=1,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='Datastore',Position=1,ValueFromPipeline=$True,mandatory=$true)]
+            [ValidateScript({
+              if ($_.Type -ne 'VVOL')
+              {
+                  throw "The entered datastore is not a vVol datastore. It is type $($_.Type). Please only enter a vVol datastore"
+              }
+              elseif ($_.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") 
+              {
+                throw "This is not a Pure Storage vVol datastore"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
@@ -45,27 +74,17 @@ function Update-PfaVvolVmVolumeGroup {
         {
             $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
         }
-        if ($datastore.Type -ne "VVOL")
-        {
-            throw "This is not a VVol datastore"
-        }
-        if ($datastore.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") {
-            throw "This is not a Pure Storage VVol datastore"
-        }
         $vms = $datastore |get-vm
     }
     elseif ($null -ne $vm) {
         $vms = $vm
-    }
-    else{
-        throw "You must enter in either a VM object or a VVol datastore"
     }
     foreach ($vm in $vms)
     {
         $configUUID = $vm.ExtensionData.Config.VmStorageObjectId
         if ($null -eq $configUUID)
         {
-            write-warning -message  "The input VM $($vm.name) is not a VVol-based virtual machine. Skipping"
+            write-warning -message  "The input VM $($vm.name) is not a vVol-based virtual machine. Skipping"
             continue
         }
         add-type @"
@@ -152,22 +171,27 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     }
     return $volumeFinalNames.name
 }
-function Get-VvolUuidFromHardDisk {
+function Get-VvolUuidFromVmdk {
     <#
     .SYNOPSIS
-      Gets the VVol UUID of a virtual disk
+      Gets the vVol UUID of a virtual disk
     .DESCRIPTION
       Takes in a virtual disk object
     .INPUTS
       Virtual disk object (get-harddisk).
     .OUTPUTS
-      Returns the VVol UUID.
+      Returns the vVol UUID.
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ get-vm myVM | get-harddisk | Get-VvolUuidFromVmdk
+
+      Pass in one or more vVol hard disks and return the corresponding vVol UUIDs
+      
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -190,10 +214,10 @@ function Get-VvolUuidFromHardDisk {
         {
           if ($vmdkDisk.ExtensionData.Backing.backingObjectId -eq "")
           {
-              throw "This is not a VVol-based hard disk."
+              throw "This is not a vVol-based hard disk."
           }
           if ((($vmdkDisk |Get-Datastore).ExtensionData.Info.vvolDS.storageArray.vendorId) -ne "PURE") {
-              throw "This is not a Pure Storage FlashArray VVol disk"
+              throw "This is not a Pure Storage FlashArray vVol disk"
           }
           $allUuids += $vmdkDisk.ExtensionData.Backing.backingObjectId
         }
@@ -206,19 +230,24 @@ function Get-VvolUuidFromHardDisk {
 function Get-PfaVolumeNameFromVvolUuid{
   <#
   .SYNOPSIS
-    Connects to vCenter and FlashArray to return the FA volume that is a VVol virtual disk.
+    Connects to vCenter and FlashArray to return the FA volume that is a vVol virtual disk.
   .DESCRIPTION
-    Takes in a VVol UUID to identify what volume it is on the FlashArray. If a VVol UUID is not specified it will ask you for a VM and then a VMDK and will find the UUID for you.
+    Takes in a vVol UUID to identify what volume it is on the FlashArray. If a vVol UUID is not specified it will ask you for a VM and then a VMDK and will find the UUID for you.
   .INPUTS
-    FlashArray connection(s) and VVol UUID.
+    FlashArray connection(s) and vVol UUID.
   .OUTPUTS
     Returns volume name.
   .NOTES
-    Version:        2.0
+    Version:        2.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  06/03/2019
+    Creation Date:  12/24/2019
     Purpose/Change: Updated for new connection mgmt
+  .EXAMPLE
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+    PS C:\ Get-PfaVolumeNameFromVvolUuid -vvolUUID (get-vm myVM | get-harddisk | Get-VvolUuidFromVmdk)
 
+    Pass in one vVol UUID and return the corresponding FlashArray volume name
+      
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
   scripts is tested and working in my environment, it is recommended that you test 
@@ -240,10 +269,6 @@ function Get-PfaVolumeNameFromVvolUuid{
           [PurePowerShell.PureArray[]]$flasharray
   )
   Begin {
-      if ($vvolUUID -eq "")
-      {
-          throw "You must enter a VVol UUID"
-      }
       $ErrorActionPreference = "stop"
   }
   Process 
@@ -276,12 +301,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
           $volumeTags = Invoke-RestMethod -Method Get -Uri "https://$($purevip)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vvolUUID}'" -WebSession $faSession -ErrorAction Stop
           $volumeName = $volumeTags |where-object {$_.key -eq "PURE_VVOL_ID"}
           remove-PfaRestSession -faSession $faSession -flasharray $fa
-          if ($null -ne $volumeName)
+          if ($null -eq $volumeName)
           {
             $Global:CurrentFlashArray = $null
           }
           else {
             $Global:CurrentFlashArray = $fa
+            break
           }
       }
   }
@@ -296,7 +322,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
       }
   }
 }
-function Get-PfaSnapshotsFromVvolHardDisk {
+function Get-PfaSnapshotFromVvolVmdk {
     <#
     .SYNOPSIS
       Returns all of the FlashArray snapshot names of a given hard disk
@@ -307,11 +333,16 @@ function Get-PfaSnapshotsFromVvolHardDisk {
     .OUTPUTS
       Returns all specified snapshot names.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/29/2019
+      Creation Date:  12/24/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ get-vm myVM | get-harddisk | Get-PfaSnapshotFromVvolVmdk 
+
+      Pass in one vVol hard disk and return the corresponding FlashArray snapshot name(s)
+   
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -340,7 +371,7 @@ function Get-PfaSnapshotsFromVvolHardDisk {
     }
     $faSession = new-PfaRestSession -flasharray $fa 
     $purevip = $fa.EndPoint
-    $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk
+    $vvolUuid = Get-VvolUuidFromVmdk -vmdk $vmdk
     $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
     $volumeSnaps = Invoke-RestMethod -Method Get -Uri "https://${purevip}/api/$($fa.apiversion)/volume/${faVolume}?snap=true" -WebSession $faSession -ErrorAction Stop
     $snapNames = @()
@@ -365,7 +396,12 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ get-vm myVM | Copy-PfaVvolVmdkToNewVvolVmdk -vmdk (get-vm sourceVM |get-harddisk)
+
+      Copy a vVol hard disk and present it as a new vVol hard disk a different VM
+   
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -395,10 +431,10 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
     {
         $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
-    $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk 
+    $vvolUuid = Get-VvolUuidFromVmdk -vmdk $vmdk 
     $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityGB $vmdk.CapacityGB -VM $targetVm 
-    $newVvolUuid = get-vvolUuidFromHardDisk -vmdk $newHardDisk 
+    $newVvolUuid = get-vvolUuidFromVmdk -vmdk $newHardDisk 
     $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid 
     New-PfaVolume -Array $fa -Source $faVolume -Overwrite -VolumeName $newFaVolume  |Out-Null
     return $newHardDisk
@@ -418,7 +454,13 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $vm = get-vm testvm01
+      PS C:\ Copy-PfaSnapshotToExistingVvolVmdk -vmdk ($vm |Get-HardDisk) -snapshotName "vvol-testvm01-F90FC8A6-vg/Data-1fe45e4a.1"
+
+      Takes a snapshot and overwrites a vVol VMDK on the same array
+   
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -453,7 +495,7 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
     $foundSnap = Get-PfaVolumeSnapshot -Array $fa -SnapshotName $snapshotName
     if ($null -eq $foundSnap)
     {
-        throw "The snapshot either does not exist, or is not on the same array as the target VVol."
+        throw "The snapshot either does not exist, or is not on the same array as the target vVol."
     }
     $snapshotSize = Get-PfaSnapshotSpaceMetrics -Array $fa -Name $snapshotName
     if ($vmdk.ExtensionData.capacityinBytes -eq $snapshotSize.size)
@@ -466,16 +508,16 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
         
     }
     else {
-        throw "The target VVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
+        throw "The target vVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
     } 
     return $vmdk    
 }
 function Copy-PfaSnapshotToNewVvolVmdk {
     <#
     .SYNOPSIS
-      Takes an snapshot and overwrites an existing VVol virtual disk from it.
+      Takes a snapshot and creates a new vVol virtual disk from it.
     .DESCRIPTION
-      Takes an snapshot and overwrites an existing VVol virtual disk from it.
+      Takes a snapshot and creates a new vVol virtual disk from it.
     .INPUTS
       FlashArray connection information, a datastore, target VM, and a source snapshot
     .OUTPUTS
@@ -485,7 +527,13 @@ function Copy-PfaSnapshotToNewVvolVmdk {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  06/04/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $vm = get-vm testvm01
+      PS C:\ Copy-PfaSnapshotToNewVvolVmdk -targetVM $vm -snapshotName "vvol-testvm01-F90FC8A6-vg/Data-1fe45e4a.1"
+
+      Takes a snapshot and overwrites a vVol VMDK on the same array
+   
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -495,7 +543,7 @@ function Copy-PfaSnapshotToNewVvolVmdk {
     ************************************************************************
     #>
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParametersetname="FlashArray")]
     Param(
             [Parameter(Position=0,mandatory=$true)]
             [string]$snapshotName,
@@ -503,18 +551,27 @@ function Copy-PfaSnapshotToNewVvolVmdk {
             [Parameter(Position=1,mandatory=$True,ValueFromPipeline=$True)]
             [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$targetVm,
 
-            [Parameter(Position=2,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='FlashArray',Position=2,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray]$flasharray,
 
-            [Parameter(Position=3,ValueFromPipeline=$True)]
+            [Parameter(ParameterSetName='Datastore',Position=3,ValueFromPipeline=$True,mandatory=$true)]
+            [ValidateScript({
+              if ($_.Type -ne 'VVOL')
+              {
+                  throw "The entered datastore is not a vVol datastore. It is type $($_.Type). Please only enter a vVol datastore"
+              }
+              elseif ($_.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") 
+              {
+                throw "This is not a Pure Storage vVol datastore"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
     )
     if (($null -eq $flasharray) -and ($null -ne $datastore))
     {
-        if ($datastore.type -ne "VVOL")
-        {
-            throw "This is not a VVol datastore."
-        }
         $flasharray = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
     }
     elseif (($null -eq $flasharray) -and ($null -eq $datastore))
@@ -523,7 +580,7 @@ function Copy-PfaSnapshotToNewVvolVmdk {
           $flasharray = checkDefaultFlashArray
         }
         catch {
-          throw "You must either pass in a FlashArray, a VVol datastore, or configure a default FlashArray connection."
+          throw "You must either pass in a FlashArray, a vVol datastore, or configure a default FlashArray connection."
         }
         $arrayID = (Get-PfaArrayAttributes -Array $flasharray).id
         $datastore = $targetVm| Get-VMHost | Get-Datastore |where-object {$_.Type -eq "VVOL"} |Where-Object {$_.ExtensionData.info.vvolDS.storageArray[0].uuid.substring(16) -eq $arrayID} |Select-Object -First 1
@@ -551,11 +608,24 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
     .OUTPUTS
       Returns the new hard disk.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  06/04/2019
+      Creation Date:  01/02/2020
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $disks = get-vm myVM | get-harddisk  
+      PS C:\ Copy-PfaVvolVmdkToExistingVvolVmdk -sourceVmdk $disks[0] -targetVmdk $disks[1]
+
+      Refreshes one disk of a VM to another disk of that VM.
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $disksProd = get-vm prodVM | get-harddisk  
+      PS C:\ $disksDev = get-vm devVM | get-harddisk  
+      PS C:\ Copy-PfaVvolVmdkToExistingVvolVmdk -sourceVmdk $disksProd[1] -targetVmdk $disksDev[1]
+
+      Refreshes the 2nd hard disk of a VM with the 2nd harddisk of a source VM
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -626,19 +696,31 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
 function New-PfaSnapshotOfVvolVmdk {
     <#
     .SYNOPSIS
-      Takes a VVol virtual disk and creates a FlashArray snapshot.
+      Takes a vVol virtual disk and creates a FlashArray snapshot.
     .DESCRIPTION
-      Takes a VVol virtual disk and creates a snapshot of it.
+      Takes a vVol virtual disk and creates a snapshot of it.
     .INPUTS
       FlashArray connection information and a virtual disk.
     .OUTPUTS
       Returns the snapshot name.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
+      Creation Date:  01/02/2020
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $disks = get-vm prodVM | get-harddisk  
+      PS C:\ New-PfaSnapshotOfVvolVmdk -vmdk $disks[0]
+
+      Create a new FlashArray snapshot of a vVol virtual disk.
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ $disks = get-vm prodVM | get-harddisk  
+      PS C:\ New-PfaSnapshotOfVvolVmdk -vmdk $disks[0] -suffix newSnap
+
+      Create a new FlashArray snapshot of a vVol virtual disk with a specified suffix.
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -656,6 +738,15 @@ function New-PfaSnapshotOfVvolVmdk {
             [Parameter(Position=1)]
             [PurePowerShell.PureArray[]]$flasharray,
 
+            [ValidateScript({
+              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
+              {
+                $true
+              }
+              else {
+                throw "Snapshot name must be between 1 and 63 characters (alphanumeric, _ and -) in length and begin and end with a letter or number. The name must include at least one letter, _, or -"
+              }
+            })]
             [Parameter(Position=2)]
             [string]$suffix
     )
@@ -696,7 +787,7 @@ function Get-VmdkFromWindowsDisk {
     .SYNOPSIS
       Returns the VM disk object that corresponds to a given Windows file system
     .DESCRIPTION
-      Takes in a drive letter and a VM object and returns a matching VMDK object
+      Takes in a drive letter and a VM object and returns a matching VMDK object. Requires Windows 2012 R2 and later and VMware tools.
     .INPUTS
       VM, Drive Letter
     .OUTPUTS
@@ -706,7 +797,12 @@ function Get-VmdkFromWindowsDisk {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  08/24/2018
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $vm = get-vm myVM 
+      PS C:\ Get-VmdkFromWindowsDisk -vm $vm -driveLetter E
+      
+      Returns the virtual disk object that hosts the specified Windows drive
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -724,89 +820,46 @@ function Get-VmdkFromWindowsDisk {
             [Parameter(Position=1,mandatory=$false)]
             [string]$driveLetter
     )
-    Begin 
+    if ($null -eq $vm)
     {
-      if ($null -eq $global:defaultviserver)
-      {
-        throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
-      }
+      $vmName = Read-Host "Please enter in the name of your VM" 
+      $vm = get-vm -name $vmName -ErrorAction Stop 
     }
-    Process 
+    $guest = $vm |Get-VMGuest
+    if ($guest.State -ne "running")
     {
-      if ($null -eq $vm)
-      {
-          try {
-              $vmName = Read-Host "Please enter in the name of your VM" 
-              $vm = get-vm -name $vmName -ErrorAction Stop 
-          }
-          catch {
-              throw $Global:Error[0]
-          }
-      }
-      try {
-          $guest = $vm |Get-VMGuest
-      }
-      catch {
-          throw $Error[0]
-      }
-      if ($guest.State -ne "running")
-      {
-          throw "This VM does not have VM tools running"
-      }
-      if ($guest.GuestFamily -ne "windowsGuest")
-      {
-          throw "This is not a Windows VM--it is $($guest.OSFullName)"
-      }
-      try {
-          $advSetting = Get-AdvancedSetting -Entity $vm -Name Disk.EnableUUID -ErrorAction Stop
-      }
-      catch {
-          throw $Error[0]
-      }
-      if ($advSetting.value -eq "FALSE")
-      {
-          throw "The VM $($vm.name) has the advanced setting Disk.EnableUUID set to FALSE. This must be set to TRUE for this cmdlet to work."    
-      }
+        throw "This VM does not have VM tools running"
+    }
+    if ($guest.GuestFamily -ne "windowsGuest")
+    {
+        throw "This is not a Windows VM--it is $($guest.OSFullName)"
+    }
+    $advSetting = Get-AdvancedSetting -Entity $vm -Name Disk.EnableUUID -ErrorAction Stop
+    if ($advSetting.value -eq "FALSE")
+    {
+        throw "The VM $($vm.name) has the advanced setting Disk.EnableUUID set to FALSE. This must be set to TRUE for this cmdlet to work."    
+    }
+    if (($null -eq $driveLetter) -or ($driveLetter -eq ""))
+    {
+      $driveLetter = Read-Host "Please enter in a drive letter" 
       if (($null -eq $driveLetter) -or ($driveLetter -eq ""))
       {
-          try {
-              $driveLetter = Read-Host "Please enter in a drive letter" 
-              if (($null -eq $driveLetter) -or ($driveLetter -eq ""))
-              {
-                  throw "No drive letter entered"
-              }
-          }
-          catch {
-              throw $Global:Error[0]
-          }
-      }
-      try {
-          $VMdiskSerialNumber = $vm |Invoke-VMScript -ScriptText "get-partition -driveletter $($driveLetter) | get-disk | ConvertTo-CSV -NoTypeInformation"  -WarningAction silentlyContinue -ErrorAction Stop |ConvertFrom-Csv
-      }
-      catch {
-              throw $Error[0]
-          }
-      if (![bool]($VMDiskSerialNumber.PSobject.Properties.name -match "serialnumber"))
-      {
-          throw ($VMdiskSerialNumber |Out-String) 
-      }
-      try {
-          $vmDisk = $vm | Get-HardDisk |Where-Object {$_.ExtensionData.backing.uuid.replace("-","") -eq $VMdiskSerialNumber.SerialNumber}
-      }
-      catch {
-          throw $Global:Error[0]
+          throw "No drive letter entered"
       }
     }
-  End 
-  {
-    if ($null -ne $vmDisk)
+    $VMdiskSerialNumber = $vm |Invoke-VMScript -ScriptText "get-partition -driveletter $($driveLetter) | get-disk | ConvertTo-CSV -NoTypeInformation"  -WarningAction silentlyContinue -ErrorAction Stop |ConvertFrom-Csv
+    if (![bool]($VMDiskSerialNumber.PSobject.Properties.name -match "serialnumber"))
     {
-        return $vmDisk
+        throw ($VMdiskSerialNumber |Out-String) 
     }
-    else {
-        throw "Could not match the VM disk to a VMware virtual disk"
-    }
-  }  
+    $vmDisk = $vm | Get-HardDisk |Where-Object {$_.ExtensionData.backing.uuid.replace("-","") -eq $VMdiskSerialNumber.SerialNumber}
+  if ($null -ne $vmDisk)
+  {
+      return $vmDisk
+  }
+  else {
+      throw "Could not match the VM disk to a VMware virtual disk"
+  }
 }
 function New-PfaVasaProvider {
   <#
@@ -835,10 +888,10 @@ function New-PfaVasaProvider {
 
     Connects to a FlashArray and then registers both of its VASA providers with a vCenter. VASA credentials will be asked for interactively.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  06/22/2019
-    Purpose/Change: First release
+    Creation Date:  12/23/2019
+    Purpose/Change: Parameter sets
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -849,25 +902,22 @@ function New-PfaVasaProvider {
   ************************************************************************
   #>
 
-  [CmdletBinding()]
+  [CmdletBinding(DefaultParameterSetName="FlashArrays")]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='FlashArrays',Position=0,ValueFromPipeline=$True)]
           [PurePowerShell.PureArray[]]$flasharray,
 
-          [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
+          [Parameter(ParameterSetName='AllFlashArrays',Position=1,ValueFromPipeline=$True,mandatory=$true)]
+          [Parameter(ParameterSetName='FlashArrays',Position=1,ValueFromPipeline=$True,mandatory=$true)]
           [System.Management.Automation.PSCredential]$credentials,
 
-          [Parameter(Position=2)]
+          [Parameter(ParameterSetName='AllFlashArrays',Position=2,mandatory=$true)]
           [switch]$allFlashArrays
   )
   $powerCLIVersionCheck = (Get-Module -name VMware.PowerCLI -ListAvailable).Version |Where-Object {($_.Major -ge 11) -and ($_.Minor -ge 3)}
   if ($null -eq $powerCLIVersionCheck)
   {
       throw "You must be running PowerCLI 11.3.0 or later for this cmdlet to work. Please run update-module VMware.PowerCLI or update manually."
-  }
-  if (($null -ne $flasharray) -and ($allFlashArrays -eq $true))
-  {
-      throw "Please either set allFlashArrays to true or pass in connections in the FlashArray parameter, not both."
   }
   if ($null -eq $flasharray)
   {
@@ -916,7 +966,7 @@ function New-PfaVasaProvider {
                 }
                 elseif ($_.Exception -like "*The VASA provider at URL*is already registered*") 
                 {
-                  Write-Warning -Message "The VASA provider for $($arrayname.array_name) controller $($ctnum) is already registered."
+                  Write-Warning -Message "The VASA provider for $($arrayname.array_name) controller $($ctnum) is already registered on this vCenter."
                   $vasaRegistered = $True
                 }
                 else 
@@ -1038,7 +1088,6 @@ function Remove-PfaVasaProvider {
           }
       }
 }
-import-module VMware.VimAutomation.Storage
 function Mount-PfaVvolDatastore {
   <#
   .SYNOPSIS
@@ -1066,10 +1115,10 @@ function Mount-PfaVvolDatastore {
 
     Mounts the default VVol datastore of the specifed FlashArray to the cluster.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/16/2019
-    Purpose/Change: First release
+    Creation Date:  12/23/2019
+    Purpose/Change: Parameter sets
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -1080,15 +1129,29 @@ function Mount-PfaVvolDatastore {
   ************************************************************************
   #>
 
-  [CmdletBinding()]
+  [CmdletBinding(DefaultParameterSetName="FlashArray")]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='FlashArray',Position=0,ValueFromPipeline=$True)]
           [PurePowerShell.PureArray]$flasharray,
 
-          [Parameter(Position=1)]
+          [Parameter(ParameterSetName='FlashArray',Position=1)]
+          [Parameter(ParameterSetName='VASA',Position=1)]
           [string]$datastoreName,
 
-          [Parameter(Position=2,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='Datastore',Position=2,ValueFromPipeline=$True)]
+          [ValidateScript({
+            if ($_.Type -ne 'VVOL')
+            {
+                throw "The entered datastore is not a vVol datastore. It is type $($_.Type). Please only enter a vVol datastore"
+            }
+            elseif ($_.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") 
+            {
+              throw "This is not a Pure Storage vVol datastore"
+            }
+            else {
+              $true
+            }
+          })]
           [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
           [Parameter(Position=3,mandatory=$true,ValueFromPipeline=$True)]
@@ -1097,23 +1160,20 @@ function Mount-PfaVvolDatastore {
           [Parameter(Position=4)]
           [string]$protocolEndpoint,
 
-          [Parameter(Position=5,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='VASA',Position=5,ValueFromPipeline=$True)]
+          [ValidateScript({
+            if ($_.VendorId -ne "PURE")
+            {
+                throw "The passed in VASA array is not a Pure Storage array."
+            }
+            else {
+              $true
+            }
+          })]
           [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray]$vasaArray
       )
-      if (($null -eq $datastore) -and ($null -eq $flasharray) -and ($null -eq $vasaArray))
-      {
-        throw "You must either enter in a VVol datastore, a Pure VASA array, or a FlashArray connection"
-      }
       if ($null -ne $datastore) 
       {
-        if ($datastore.Type -ne "VVOL")
-        {
-            throw "This is not a VVol datastore"
-        }
-        if ($datastore.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -ne "PURE") 
-        {
-            throw "This is not a Pure Storage VVol datastore"
-        }
         $arrayID = $datastore.ExtensionData.Info.VvolDS.StorageArray[0].Uuid
         $scId = $datastore.ExtensionData.Info.VvolDS.ScId
         $needToCalculateScID = $false
@@ -1126,10 +1186,6 @@ function Mount-PfaVvolDatastore {
       }
       elseif ($null -ne $vasaArray) 
       {
-        if ($vasaArray.VendorId -ne "PURE")
-        {
-            throw "The passed in VASA array is not a Pure Storage VASA provider."
-        }
         $needToCalculateScID = $True
         $arrayID = $vasaArray.id
       }
@@ -1160,7 +1216,7 @@ function Mount-PfaVvolDatastore {
         $datastoreExists = get-datastore |Where-Object {$_.Type -eq "VVol"} |Where-Object {$_.ExtensionData.Info.VVolds.Scid -eq $scId}
         if ($null -eq $datastoreExists)
         {
-          throw "This storage container ID ($($scId)) has not yet been mounted in this vCenter as a VVol datastore, so no existing name was found. Please enter a name for the VVol datastore"
+          throw "This storage container ID ($($scId)) has not yet been mounted in this vCenter as a vVol datastore, so no existing name was found. Please enter a name for the vVol datastore"
         }
         else {
           $datastoreName = $datastoreExists.Name
@@ -1281,9 +1337,8 @@ function Mount-PfaVvolDatastore {
         {
           $datastore = Get-Datastore -Id ($datastoreSystem.CreateVvolDatastore($spec))
         }
-        else 
-        {
-          Write-Warning "This VVol datastore ($($foundDatastore.name)) is already mounted on the host $($esxi.name). Skipping this host."
+        else {
+          $datastore = $foundDatastore
         }
         $foundDatastore = $null
       }
@@ -1470,11 +1525,13 @@ function getAllFlashArrays {
       throw "Please either pass in one or more FlashArray connections or create connections via the new-PfaConnection cmdlet."
   }
 }
-New-Alias -Name update-faVvolVmVolumeGroup -Value update-PfaVvolVmVolumeGroup
-New-Alias -Name get-faSnapshotsFromVvolHardDisk -Value get-PfaSnapshotsFromVvolHardDisk
-New-Alias -Name copy-faVvolVmdkToNewVvolVmdk -Value copy-PfaVvolVmdkToNewVvolVmdk
-New-Alias -Name copy-faSnapshotToExistingVvolVmdk -Value copy-PfaSnapshotToExistingVvolVmdk
-New-Alias -Name copy-faSnapshotToNewVvolVmdk -Value copy-PfaSnapshotToNewVvolVmdk
-New-Alias -Name copy-faVvolVmdkToExistingVvolVmdk -Value copy-PfaVvolVmdkToExistingVvolVmdk
-New-Alias -Name new-faSnapshotOfVvolVmdk -Value new-PfaSnapshotOfVvolVmdk
-New-Alias -Name get-faVolumeNameFromVvolUuid -Value get-PfaVolumeNameFromVvolUuid
+New-Alias -Name update-faVvolVmVolumeGroup -Value Update-PfaVvolVmVolumeGroup
+New-Alias -Name get-faSnapshotsFromVvolHardDisk -Value Get-PfaSnapshotFromVvolVmdk
+New-Alias -Name Get-PfaSnapshotsFromVvolHardDisk -Value Get-PfaSnapshotFromVvolVmdk
+New-Alias -Name copy-faVvolVmdkToNewVvolVmdk -Value Copy-PfaVvolVmdkToNewVvolVmdk
+New-Alias -Name copy-faSnapshotToExistingVvolVmdk -Value Copy-PfaSnapshotToExistingVvolVmdk
+New-Alias -Name copy-faSnapshotToNewVvolVmdk -Value Copy-PfaSnapshotToNewVvolVmdk
+New-Alias -Name copy-faVvolVmdkToExistingVvolVmdk -Value Copy-PfaVvolVmdkToExistingVvolVmdk
+New-Alias -Name new-faSnapshotOfVvolVmdk -Value New-PfaSnapshotOfVvolVmdk
+New-Alias -Name get-faVolumeNameFromVvolUuid -Value Get-PfaVolumeNameFromVvolUuid
+New-Alias -Name Get-VvolUuidFromHardDisk -Value Get-VvolUuidFromVmdk

@@ -21,18 +21,18 @@ function Install-PfavSpherePlugin {
     
     Installs the Flash 3.1.2 plugin located on Pure1 to the connected vCenter.  
   .EXAMPLE
-    PS C:\ Install-PfavSpherePlugin -address 10.21.20.20
+    PS C:\ Install-PfavSpherePlugin -source 10.21.20.20
     
     Installs the plugin that is hosted on the specified FlashArray IP to the connected vCenter. 
   .EXAMPLE
-    PS C:\ Install-PfavSpherePlugin -address flasharray.purestorage.com
+    PS C:\ Install-PfavSpherePlugin -source flasharray.purestorage.com
     
     Installs the plugin that is hosted on the specified FlashArray FQDN to the connected vCenter. 
   .NOTES
-    Version:        1.0
+    Version:        1.2
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/13/2019
-    Purpose/Change: First release
+    Creation Date:  12/23/2019
+    Purpose/Change: Added parameter sets and validation
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -43,30 +43,43 @@ function Install-PfavSpherePlugin {
   ************************************************************************
   #>
 
-  [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
+  [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High',DefaultParameterSetName='Version')]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='HTMLFA',Position=0,ValueFromPipeline=$True)]
+          [Parameter(ParameterSetName='FlashFA',Position=0,ValueFromPipeline=$True)]
           [PurePowerShell.PureArray]$flasharray,
 
-          [Parameter(Position=1)]
+          [Parameter(ParameterSetName='HTMLSource',Position=1)]
+          [Parameter(ParameterSetName='FlashSource',Position=1)]
           [string]$source,
 
-          [Parameter(Position=2)]
+          [Parameter(ParameterSetName='HTMLSource',Position=2)]
+          [Parameter(ParameterSetName='HTMLFA',Position=2)]
           [switch]$html,
 
-          [Parameter(Position=3)]
+          [Parameter(ParameterSetName='FlashSource',Position=3)]
+          [Parameter(ParameterSetName='FlashFA',Position=3)]
           [switch]$flash,
 
-          [Parameter(Position=4)]
+          [ValidateScript({
+            if ($_ -match '[0-9]+\.[0-9]+\.[0-9]+$')
+            {
+              $true
+            }
+            else {
+              throw "The version must be in the format of x.x.x. Like 4.2.0 or 3.1.3."
+            }
+          })]
+          [Parameter(ParameterSetName='HTMLSource',Position=4)]
+          [Parameter(ParameterSetName='FlashSource',Position=4)]
+          [Parameter(ParameterSetName='FlashFA',Position=4)]
+          [Parameter(ParameterSetName='HTMLFA',Position=4)]
+          [Parameter(ParameterSetName='Version',Position=4)]
           [string]$version
       )
   if ($null -eq $global:defaultviserver)
   {
     throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
-  }
-  if (($null -ne $flasharray) -and ($source -ne ""))
-  {
-      throw "You cannot pass in both a source and a FlashArray connection. One or the other, or neither (defaults to Pure1)"
   }
   if ($null -ne $flasharray)
   {
@@ -85,14 +98,6 @@ function Install-PfavSpherePlugin {
     throw "This cmdlet does not support vCenter 5.x"
   }
   $ErrorActionPreference = "Stop"
-  if (($version -ne "") -and (($version -match '[0-9]+\.[0-9]+\.[0-9]+$') -eq $false))
-  {
-    throw "Invalid version syntax. Please enter it in the form of x.x.x like 4.0.0 or 3.1.12"
-  }
-  if (($html -eq $true) -and ($flash -eq $true))
-  {
-    throw "Please only use the -html switch, or the -flash switch. Not both."
-  }
   if (($version -match '3\.[0-9]+\.[0-9]+$'))
   {
     $flash = $true
@@ -408,14 +413,14 @@ function Get-PfavSpherePlugin {
     
     Retrieves the vSphere plugin version from the FlashArray connections stored in the global variable $Global:AllFlashArrays and Pure1.
   .EXAMPLE
-    PS C:\ Get-PfavSpherePlugin -address "10.21.202.52","flasharray-m20-1",10.21.88.7
+    PS C:\ Get-PfavSpherePlugin -source "10.21.202.52","flasharray-m20-1",10.21.88.7
     
     Retrieves the vSphere plugin version from the FlashArray IPs or FQDNs and Pure1
   .NOTES
-    Version:        1.1
+    Version:        1.2
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/27/2019
-    Purpose/Change: Bug fix for specifying Pure1 as source
+    Creation Date:  12/23/2019
+    Purpose/Change: Parameter validation.
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -440,13 +445,18 @@ function Get-PfavSpherePlugin {
           [Parameter(Position=3)]
           [switch]$flash,
 
+          [ValidateScript({
+            if ($_ -match '[0-9]+\.[0-9]+\.[0-9]+$')
+            {
+              $true
+            }
+            else {
+              throw "The version must be in the format of: <x.x.x> like 4.2.0 or 3.1.3"
+            }
+          })]
           [Parameter(Position=4)]
           [string]$version
       )
-  if (($version -ne "") -and (($version -match '[0-9]+\.[0-9]+\.[0-9]+$') -eq $false))
-  {
-    throw "Invalid version syntax. Please enter it in the form of x.x.x like 4.0.0 or 3.1.12"
-  }
   if (($flasharray.count -eq 0) -and ($source.count -eq 0))
   {
       $flasharray = $Global:AllFlashArrays
@@ -632,7 +642,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   }
   return $plugins
 }
-
 function Deploy-PfaAppliance {
   <#
   .SYNOPSIS
@@ -693,40 +702,49 @@ function Deploy-PfaAppliance {
       [Parameter(Position=0,mandatory=$true)]
       [string]$vmName,
 
-      [Parameter(Position=1,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='StaticHost',Position=1,ValueFromPipeline=$True,mandatory=$true)]
+      [Parameter(ParameterSetName='DHCPHost',Position=1,ValueFromPipeline=$True,mandatory=$true)]
       [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$vmHost,
 
-      [Parameter(Position=2)]
+      [Parameter(Position=2,mandatory=$true)]
       [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
-      [Parameter(Position=3)]
+      [Parameter(Position=3,mandatory=$true)]
       [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroupBase]$portGroup,
 
-      [Parameter(Position=4)]
+      [Parameter(ParameterSetName='StaticCluster',Position=4,mandatory=$true,ValueFromPipeline=$True)]
+      [Parameter(ParameterSetName='DHCPCluster',Position=4,mandatory=$true,ValueFromPipeline=$True)]
       [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
 
-      [Parameter(Position=5)]
+      [Parameter(ParameterSetName='DHCPCluster',Position=5)]
+      [Parameter(ParameterSetName='DHCPHost',Position=5)]
       [switch]$dhcp,
 
       [Parameter(Position=6,mandatory=$true)]
       [string]$authorizationKey,
 
-      [Parameter(Position=7)]
+      [Parameter(ParameterSetName='StaticCluster',Position=7,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=7,mandatory=$true)]
       [string]$ipAddress,
 
-      [Parameter(Position=8)]
+      [Parameter(ParameterSetName='StaticCluster',Position=8,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=8,mandatory=$true)]
       [string]$netmask,
 
-      [Parameter(Position=9)]
+      [Parameter(ParameterSetName='StaticCluster',Position=9,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=9,mandatory=$true)]
       [string]$gateway,
 
-      [Parameter(Position=10)]
+      [Parameter(ParameterSetName='StaticCluster',Position=10,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=10,mandatory=$true)]
       [string]$dnsPrimary,
 
-      [Parameter(Position=11)]
+      [Parameter(ParameterSetName='StaticCluster',Position=11,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=11,mandatory=$true)]
       [string]$dnsSecondary,
 
-      [Parameter(Position=12)]
+      [Parameter(ParameterSetName='StaticCluster',Position=12,mandatory=$true)]
+      [Parameter(ParameterSetName='StaticHost',Position=12,mandatory=$true)]
       [string]$hostName,
 
       [Parameter(Position=13)]
@@ -741,61 +759,22 @@ function Deploy-PfaAppliance {
       [Parameter(Position=16)]
       [switch]$silent
   )
-  $ErrorActionPreference = "stop"
-  $vCenterVersion = $Global:DefaultVIServer | Select-Object Version
-  if (($vCenterVersion.Version -eq "6.0.0") -and ($ovaPassword.length -ge 1))
-  {
-      Throw "vCenter version 6.0 does not support the APIs that are required to change the default password. Please re-run the deployment without specifying a password. You will then need to manually SSH in or use the VM console to change the default password to one of your own."
-  }
-  if ($null -eq $portGroup)
-  {
-    throw "Please pass in a virtual port group with get-virtualportgroup"
-  }
-  if ($null -eq $datastore)
-  {
-    throw "Please pass in a datastore with get-datastore"
-  }
-  try
-  {
-    $foundVM = get-vm $vmName
-  }
-  catch  {}
-  if ($null -ne $foundVM)
-  {
-    throw "A VM with the name $($vmName) already exists. Please specify a unique name."
-  }
-  if ($dhcp -eq $false)
+    $ErrorActionPreference = "stop"
+    $vCenterVersion = $Global:DefaultVIServer | Select-Object Version
+    if (($vCenterVersion.Version -eq "6.0.0") -and ($ovaPassword.length -ge 1))
     {
-      if ([string]::IsNullOrEmpty($ipAddress))
-      {
-        throw "If you do not specify DHCP, you must enter an IP address."
-      }
-      if ([string]::IsNullOrEmpty($netmask))
-      {
-        throw "If you do not specify DHCP, you must enter a netmask"
-      }
-      if ([string]::IsNullOrEmpty($gateway))
-      {
-        throw "If you do not specify DHCP, you must enter a gateway"
-      }
-      if ([string]::IsNullOrEmpty($dnsPrimary))
-      {
-        throw "If you do not specify DHCP, you must enter at least one DNS server IP"
-      }
-      if ([string]::IsNullOrEmpty($hostName))
-      {
-        throw "If you do not specify DHCP, you must enter a fully-qualified domain name."
-      }
+        Throw "vCenter version 6.0 does not support the APIs that are required to change the default password. Please re-run the deployment without specifying a password. You will then need to manually SSH in or use the VM console to change the default password to one of your own."
     }
-    if ([string]::IsNullOrEmpty($authorizationKey))
+    try
     {
-      throw "You must pass in an authorization key. This can be acquired from Pure1.purestorage.com by your Pure1 organization admin(s)."
+      $foundVM = get-vm $vmName
     }
-    if (($null -eq $cluster) -and ($null -eq $vmHost))
+    catch  {}
+    if ($null -ne $foundVM)
     {
-      throw "Please pass in a vSphere cluster or a specific ESXi host."
+      throw "A VM with the name $($vmName) already exists. Please specify a unique name."
     }
-    elseif ($null -eq $vmhost)
+    if ($null -eq $vmhost)
     {
         $vmHost = $cluster | get-vmhost | where-object {($_.version -like '5.5.*') -or ($_.version -like '6.*')}| where-object {($_.ConnectionState -eq 'Connected')} |Select-Object -last 1
     }
@@ -904,7 +883,6 @@ function Deploy-PfaAppliance {
   }
   
 }
-
 function Get-PfaAppliance {
   <#
   .SYNOPSIS

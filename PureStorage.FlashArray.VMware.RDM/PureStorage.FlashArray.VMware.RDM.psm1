@@ -1,4 +1,5 @@
-function new-pfaVolRdm {
+$ErrorActionPreference = 'Stop'
+function New-PfaRDM {
     <#
     .SYNOPSIS
       Creates a new Raw Device Mapping for a VM
@@ -9,11 +10,32 @@ function new-pfaVolRdm {
     .OUTPUTS
       FlashArray volume name
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/09/2019
+      Purpose/Change: Added examples parameter sets/validation
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $vm = get-vm myVM
+      PS C:\ New-PfaRDM -vm $vm -sizeInTb 1
+      
+      Creates a new 1 TB RDM and presents it to a VM on the default FlashArray.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $vm = get-vm myVM
+      PS C:\ New-PfaRDM -vm $vm -sizeInTb 1 -flasharray $fa
+      
+      Creates a new 1 TB RDM and presents it to a VM on the specified FlashArray.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $vm = get-vm myVM
+      PS C:\ New-PfaRDM -vm $vm -sizeInTb 1 -flasharray $fa -snapshot vol1.mySnapshot
+      
+      Creates a RDM from the volume snapshot vol1.mySnapshot and presents it to a VM on the specified FlashArray.
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -34,44 +56,43 @@ function new-pfaVolRdm {
             [Parameter(Position=2)]
             [string]$volName,
 
-            [Parameter(Position=3)]
-            [int]$sizeInGB,
+            [ValidateRange(1,63488)]
+            [Parameter(ParameterSetName='GB',Position=3)]
+            [int]$sizeInGB =0,
 
-            [Parameter(Position=4)]
-            [int]$sizeInTB,
+            [ValidateRange(1,62)]
+            [Parameter(ParameterSetName='TB',Position=4)]
+            [int]$sizeInTB = 0,
 
+            [ValidateScript({
+              if ($_.Type -ne 'VMFS')
+              {
+                  throw "The entered datastore is not a VMFS datastore. It is type $($_.Type). Please only enter a VMFS datastore"
+              }
+              else {
+                $true
+              }
+            })]
             [Parameter(Position=5,ValueFromPipeline=$True)]
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
             [Parameter(Position=6,ValueFromPipeline=$True)]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.ScsiController]$scsiController,
 
-            [Parameter(Position=7)]
+            [Parameter(ParameterSetName='Snapshot',Position=7)]
             [string]$snapshotName
     )
     if ($null -eq $flasharray)
     {
       $flasharray = checkDefaultFlashArray
     }
-    if ($snapshotName -eq "")
+    if ($sizeInGB -ne 0) 
     {
-        if (($sizeInGB -eq 0) -and ($sizeInTB -eq 0))
-        {
-            throw "Please enter a size in GB or TB"
-        }
-        elseif (($sizeInGB -ne 0) -and ($sizeInTB -ne 0)) {
-            throw "Please only enter a size in TB or GB, not both."
-        }
-        elseif ($sizeInGB -ne 0) {
-            $volSize = $sizeInGB * 1024 *1024 *1024   
-        }
-        else {
-            $volSize = $sizeInTB * 1024 *1024 *1024 * 1024
-        }
+      $volSize = $sizeInGB * 1024 *1024 *1024   
     }
-    elseif (($snapshotName -ne "") -and (($sizeInGB -ne 0) -or ($sizeInTB -ne 0))) 
+    else 
     {
-        throw "Please enter a snapshot or a size, not both."
+      $volSize = $sizeInTB * 1024 *1024 *1024 * 1024
     }
     $ErrorActionPreference = "stop"
     if ($volName -eq "")
@@ -90,15 +111,18 @@ function new-pfaVolRdm {
         $vmDatastore = Get-Datastore -vm $vm
         if ($vmDatastore.count -gt 1)
         {
-            $datastore = get-datastore (($vm.ExtensionData.Layoutex.file |where-object {$_.name -like "*.vmx*"}).name.split("]")[0].substring(1))
+            $ds = get-datastore (($vm.ExtensionData.Layoutex.file |where-object {$_.name -like "*.vmx*"}).name.split("]")[0].substring(1))
+            if ($ds.Type -ne 'VMFS')
+            {
+                throw "The home datastore for this VM (a datastore named $($ds.name)) is not a VMFS datastore. It is type $($ds.Type). Please pass in a target VMFS datastore for the RDM pointer file."
+            }
+            else {
+              $datastore = $ds
+            }
         }
         else {
             $datastore = $vmDatastore[0]
         }
-    }
-    if ($datastore.type -eq "VVOL")
-    {
-        throw "The datastore cannot be of type VVols as RDM pointer files are not supported on that type of datastore. Please specify a VMFS or NFS datastore"
     }
     $cluster = $vm | get-cluster
     if ($null -eq $cluster)
@@ -186,7 +210,7 @@ function new-pfaVolRdm {
         throw $PSItem
     }       
 }
-function get-pfaVolfromRDM {
+function Get-PfaRDMVol {
     <#
     .SYNOPSIS
       Retrieves the FlashArray volume that hosts a RDM disk.
@@ -197,11 +221,26 @@ function get-pfaVolfromRDM {
     .OUTPUTS
       Returns FlashArray volume or error if not found.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/09/2019
+      Purpose/Change: Added examples, validation to parameters.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $rdm = get-harddisk myVM |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Get-PfaRDMVol -rdm $rdm
+
+      Returns the FlashArray volume hosting the RDM if it is on one of the connected FlashArrays.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Get-PfaRDMVol -rdm $rdm -flasharray $fa
+      
+      Returns the FlashArray volume hosting the RDM if it is on the specified FlashArray.
+    
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -214,15 +253,20 @@ function get-pfaVolfromRDM {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.DiskType -ne 'RawPhysical')
+              {
+                  throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray
     )
-      if ($rdm.DiskType -ne 'RawPhysical')
-      {
-          throw "This is not a physical mode RDM disk. Detected configuration is $($rdm.DiskType)"
-      }
       $lun = ("naa." + $rdm.ExtensionData.Backing.LunUuid.substring(10).substring(0,32))
       if ($null -eq $flasharray)
       {
@@ -246,7 +290,7 @@ function get-pfaVolfromRDM {
       }
       throw "Specified RDM was not found on the passed in FlashArrays."
 }
-function get-pfaConnectionfromRDM {
+function Get-PfaConnectionFromRDM {
   <#
   .SYNOPSIS
     Retrieves the FlashArray connection of a volume that hosts a RDM disk.
@@ -257,11 +301,26 @@ function get-pfaConnectionfromRDM {
   .OUTPUTS
     Returns FlashArray connection or error if not found.
   .NOTES
-    Version:        2.0
+     Version:        2.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  05/28/2019
-    Purpose/Change: Updated for new connection mgmt
+    Creation Date:  12/09/2019
+    Purpose/Change: Added examples, validation to parameters.
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+    PS C:\ $rdm = get-vm myVM |get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+    PS C:\ Get-pfaConnectionfromRDM -rdm $rdm
 
+    Returns the FlashArray connection hosting the RDM if it is on one of the connected FlashArrays.
+  .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+    PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+    PS C:\ Get-pfaConnectionfromRDM -rdm $rdm -flasharray $fa
+    
+     Returns the FlashArray connection hosting the RDM if it is on the specified FlashArray.
+    
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
   scripts is tested and working in my environment, it is recommended that you test 
@@ -274,15 +333,20 @@ function get-pfaConnectionfromRDM {
   [CmdletBinding()]
   Param(
           [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+          [ValidateScript({
+            if ($_.DiskType -ne 'RawPhysical')
+            {
+                throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+            }
+            else {
+              $true
+            }
+          })]
           [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
           [Parameter(Position=1,ValueFromPipeline=$True)]
           [PurePowerShell.PureArray[]]$flasharray
   )
-    if ($rdm.DiskType -ne 'RawPhysical')
-    {
-        throw "This is not a physical mode RDM disk. Detected configuration is $($rdm.DiskType)"
-    }
     $lun = ("naa." + $rdm.ExtensionData.Backing.LunUuid.substring(10).substring(0,32))
     if ($null -eq $flasharray)
     {
@@ -306,7 +370,7 @@ function get-pfaConnectionfromRDM {
     }
     throw "Specified RDM was not found on the passed in FlashArrays."
 }
-function new-pfaVolRdmSnapshot {
+function New-PfaRDMSnapshot {
     <#
     .SYNOPSIS
       Creates a new FlashArray snapshot of one or more given RDMs
@@ -317,11 +381,25 @@ function new-pfaVolRdmSnapshot {
     .OUTPUTS
       Returns created snapshot.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/31/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/09/2019
+      Purpose/Change: Added examples, validation to parameters.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ new-PfaRDMSnapshot -rdm $rdm
+
+      Creates a snapshot of the FlashArray volume hosting the RDM.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ new-PfaRDMSnapshot -rdm $rdm -suffix newSnap
+
+      Creates a snapshot called newSnap of the FlashArray volume hosting the RDM.
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -340,22 +418,10 @@ function new-pfaVolRdmSnapshot {
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$rdm,
 
             [Parameter(Position=2)]
-            [string]$snapshot,
-
-            [Parameter(Position=3)]
             [string]$suffix
     )
     Begin {
         $allSnaps = @()
-        if (("" -ne $snapshot) -and ("" -ne $suffix))
-        {
-            throw "Please only enter in the suffix, the snapshot parameter is being deprecated."
-        }
-        elseif ("" -ne $snapshot) 
-        {
-          Write-Warning -Message "The snapshot parameter is being deprecated--please use the suffix parameter instead."  
-          $suffix = $snapshot        
-        }
     }
     Process {
         foreach ($rdmDisk in $rdm)
@@ -378,7 +444,7 @@ function new-pfaVolRdmSnapshot {
         return $allSnaps
     }  
 }
-function get-pfaVolRDMSnapshot {
+function Get-PfaRDMSnapshot {
     <#
     .SYNOPSIS
       Retrieves snapshots of a FlashArray-based RDM
@@ -389,11 +455,17 @@ function get-pfaVolRDMSnapshot {
     .OUTPUTS
       Returns FlashArray snapshot(s).
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/10/2019
+      Purpose/Change: Added RDM Validation
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk  |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Get-PfaRDMSnapshot -rdm $rdm
+
+      REturns all FlashArray snapshots of the volume hosting the RDM.
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -406,6 +478,15 @@ function get-pfaVolRDMSnapshot {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.DiskType -ne 'RawPhysical')
+              {
+                  throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
@@ -420,7 +501,7 @@ function get-pfaVolRDMSnapshot {
       $snapshots = Get-PfaVolumeSnapshots -Array $fa -VolumeName $pureVol.name 
       return $snapshots
 }
-function copy-pfaSnapshotToRDM {
+function Copy-PfaSnapshotToRDM {
     <#
     .SYNOPSIS
       Input a FlashArray RDM and a snapshot to refresh the RDM
@@ -435,7 +516,21 @@ function copy-pfaSnapshotToRDM {
       Author:         Cody Hosterman https://codyhosterman.com
       Creation Date:  05/28/2019
       Purpose/Change: Updated for new connection mgmt
-  
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -suffix mySnapshot -offlineConfirm
+      
+      Removes the RDM, refreshes it from a snapshot and adds it back to the VM.
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -flasharray $fa -suffix mySnapshot -offlineConfirm
+      
+      Removes the RDM, refreshes it from a snapshot and adds it back to the VM.
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -448,6 +543,15 @@ function copy-pfaSnapshotToRDM {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.DiskType -ne 'RawPhysical')
+              {
+                  throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
@@ -478,8 +582,7 @@ function copy-pfaSnapshotToRDM {
         $datastore = $rdm |Get-Datastore
         Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
         $refreshedVol = New-PfaVolume -Array $fa -VolumeName $sourceVol.name -Source $snapshot -Overwrite -ErrorAction Stop
-        $snapshotObj = Get-PfaVolumeSnapshot -SnapshotName $snapshot -Array $fa
-        $esxiHosts = $rdm.Parent|get-cluster| Get-VMHost 
+        $esxiHosts = $rdm.Parent | Get-VMHost 
         foreach ($esxiHost in $esxiHosts)
         {
             $esxi = $esxiHost.ExtensionData
@@ -495,7 +598,7 @@ function copy-pfaSnapshotToRDM {
         $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
         return $rdmDisk
 }
-function set-pfaVolRDMCapacity {
+function Set-PfaRDMCapacity {
     <#
     .SYNOPSIS
       Resizes the RDM volume
@@ -506,11 +609,25 @@ function set-pfaVolRDMCapacity {
     .OUTPUTS
       Returns RDM disk.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/31/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/10/2019
+      Purpose/Change: Added validation and parameter sets
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk  |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Set-PfaRDMCapacity -rdm $rdm -sizeInTb 1 -offlineConfirm
+      
+      Resizes the RDM to a larger capacity
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Set-PfaRDMCapacity -rdm $rdm -sizeInTb 1 -offlineConfirm -truncate
+      
+      Resizes the RDM to a smaller capacity
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -523,16 +640,27 @@ function set-pfaVolRDMCapacity {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.DiskType -ne 'RawPhysical')
+              {
+                  throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray,
 
-            [Parameter(Position=2)]
-            [int]$sizeInGB,
+            [Parameter(ParameterSetName='GB',Position=2)]
+            [ValidateRange(1,63488)]
+            [int]$sizeInGB = 0,
 
-            [Parameter(Position=3)]
-            [int]$sizeInTB,
+            [Parameter(ParameterSetName='TB',Position=3)]
+            [ValidateRange(1,62)]
+            [int]$sizeInTB = 0,
 
             [Parameter(Position=4)]
             [switch]$truncate,
@@ -548,10 +676,7 @@ function set-pfaVolRDMCapacity {
     {
         throw "Please enter a size in GB or TB"
     }
-    elseif (($sizeInGB -ne 0) -and ($sizeInTB -ne 0)) {
-        throw "Please only enter a size in TB or GB, not both."
-    }
-    elseif ($sizeInGB -ne 0) {
+   if ($sizeInGB -ne 0) {
         $volSize = $sizeInGB * 1024 *1024 *1024   
     }
     else {
@@ -563,13 +688,13 @@ function set-pfaVolRDMCapacity {
     }
     $fa = get-pfaConnectionlfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
     $pureVol = $rdm | get-faVolfromRDM -flasharray $fa 
-    $vm = $rdm.Parent
-    $controller = $rdm |Get-ScsiController
-    $datastore = $rdm |Get-Datastore
     if (($truncate -ne $true) -and ($pureVol.size -gt $volSize))
     {
         throw "This operation will shrink the target RDM--please ensure this is expected and if so, please rerun the operation with the -truncate parameter."
     }
+    $vm = $rdm.Parent
+    $controller = $rdm |Get-ScsiController
+    $datastore = $rdm |Get-Datastore
     Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
     if ($truncate -eq $true)
     {
@@ -578,7 +703,7 @@ function set-pfaVolRDMCapacity {
     else {
         $expandedVol = Resize-PfaVolume -Array $fa -VolumeName $pureVol.name -NewSize $volSize 
     }
-    $esxiHosts = $rdm.Parent|get-cluster| Get-VMHost 
+    $esxiHosts = $rdm.Parent| Get-VMHost 
     foreach ($esxiHost in $esxiHosts)
     {
         $esxi = $esxiHost.ExtensionData
@@ -595,7 +720,7 @@ function set-pfaVolRDMCapacity {
     $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
     return $rdmDisk
 }
-function remove-pfaVolRDM {
+function Remove-PfaRDM {
     <#
     .SYNOPSIS
       Removes one or more RDM volumes
@@ -606,11 +731,18 @@ function remove-pfaVolRDM {
     .OUTPUTS
       Returns destroyed FA volume(s).
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/10/2019
+      Purpose/Change: Added RDM type handling
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk  |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Remove-PfaRDM -rdm $rdm
+      
+      Removes the RDM and destroys the volume on the FlashArray
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -635,11 +767,15 @@ function remove-pfaVolRDM {
     Process {
         foreach ($rdmDisk in $rdm)
         {
+            if ($rdmDisk.DiskType -ne 'RawPhysical')
+            {
+              throw "The input disk $($rdmDisk.Name) is not an RDM."
+            }
             if ($null -eq $flasharray)
             {
               $flasharray = getAllFlashArrays 
             }
-            $fa = get-pfaConnectionlfromRDM -rdm $rdmDisk -flasharray $flasharray
+            $fa = get-pfaConnectionfromRDM -rdm $rdmDisk -flasharray $flasharray
             $pureVol = $rdmDisk | get-faVolfromRDM -flasharray $fa 
             $esxiHosts += $rdmDisk.Parent|get-cluster| Get-VMHost 
             Remove-HardDisk $rdmDisk -DeletePermanently -Confirm:$false
@@ -678,7 +814,7 @@ function remove-pfaVolRDM {
         return $destroyedVols
     }  
 }
-function convert-pfaVolRDMtoVvol {
+function Convert-PfaRDMToVvol {
     <#
     .SYNOPSIS
       Converts a RDM to a VVol
@@ -689,11 +825,18 @@ function convert-pfaVolRDMtoVvol {
     .OUTPUTS
       Returns the new VVol virtual disk.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/29/2019
-      Purpose/Change: Updated for new connection mgmt
-  
+      Creation Date:  12/16/2019
+      Purpose/Change: Updated for examples, validation sets
+    .EXAMPLE
+      PS C:\ $faCreds = get-credential
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
+      PS C:\ $rdm = get-vm myVM |get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
+      PS C:\ Convert-PfaRDMToVvol -rdm $rdm -offlineConfirm
+      
+      Removes the RDM and destroys the volume on the FlashArray
+
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
     scripts is tested and working in my environment, it is recommended that you test 
@@ -706,12 +849,30 @@ function convert-pfaVolRDMtoVvol {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.DiskType -ne 'RawPhysical')
+              {
+                  throw "The entered virtual disk is not a Physical Mode RDM. It is type $($_.DiskType). Please only enter a physical mode RDM"
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
-            [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
+            [Parameter(Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
+            [ValidateScript({
+              if ($_.Type -ne 'VVOL')
+              {
+                  throw "The entered datastore is not a vVol datastore. It is type $($_.Type). Please only enter a vVol datastore only."
+              }
+              else {
+                $true
+              }
+            })]
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
             [Parameter(Position=3)]
@@ -743,7 +904,7 @@ function convert-pfaVolRDMtoVvol {
         }
         if ($null -eq $datastore)
         {
-            throw "No VVol datastore found on ESXi host for input array. Please ensure one is mounted."
+            throw "No vVol datastore found on ESXi host for input array. Please ensure one is mounted."
         }
     }
     else {
@@ -783,11 +944,18 @@ function getAllFlashArrays {
       throw "Please either pass in one or more FlashArray connections or create connections via the new-pfaConnection cmdlet."
   }
 }
-New-Alias -Name new-faVolRdm -Value new-pfaVolRdm
-New-Alias -Name set-faVolRDMCapacity -Value set-pfaVolRDMCapacity
+New-Alias -Name new-faVolRdm -Value New-PfaRdm
+New-Alias -Name set-faVolRDMCapacity -Value Set-PfaRDMCapacity
 New-Alias -Name copy-faSnapshotToRDM -Value copy-pfaSnapshotToRDM
 New-Alias -Name get-faVolRDMSnapshots -Value get-pfaVolRDMSnapshot
-New-Alias -Name new-faVolRdmSnapshot -Value new-pfaVolRdmSnapshot
-New-Alias -Name get-faVolfromRDM -Value get-pfaVolfromRDM
-New-Alias -Name remove-faVolRDM -Value remove-pfaVolRDM
-New-Alias -Name convert-faVolRDMtoVvol -Value convert-pfaVolRDMtoVvol
+New-Alias -Name new-faVolRdmSnapshot -Value Get-PfaRDMSnapshot
+New-Alias -Name get-faVolfromRDM -Value Get-PfaRDMVol
+New-Alias -Name remove-faVolRDM -Value Remove-PfaRDM 
+New-Alias -Name convert-faVolRDMtoVvol -Value Convert-PfaRDMToVvol
+New-Alias -Name new-pfaVolRdm -Value New-PfaRdm
+New-Alias -Name set-pfaVolRDMCapacity -Value Set-PfaRDMCapacity
+New-Alias -Name get-pfaVolRDMSnapshot -Value Get-PfaRDMSnapshot
+New-Alias -Name new-pfaVolRdmSnapshot -Value New-PfaRDMSnapshot
+New-Alias -Name get-pfaVolfromRDM -Value Get-PfaRDMVol
+New-Alias -Name remove-pfaVolRDM -Value Remove-PfaRDM 
+New-Alias -Name convert-pfaVolRDMtoVvol -Value Convert-PfaRDMToVvol

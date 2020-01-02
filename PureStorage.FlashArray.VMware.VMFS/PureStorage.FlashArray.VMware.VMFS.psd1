@@ -4,10 +4,10 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.VMFS.psd1
-	 Version:		1.0.0.1
-	 Copyright:		2019 Pure Storage, Inc.
+	 Version:		1.1.0.0
+	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStoragePowerShell
+	 Module Name: PureStorageFlashArrayVMwareVMFSPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.VMFS.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.0.0.1'
+	ModuleVersion = '1.1.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = 'd196e4c0-16b8-4189-bc91-1bcee3b7dffe'
@@ -41,13 +41,13 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2019 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell VMFS management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '3.0'
+	PowerShellVersion = '5.0'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -64,7 +64,8 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.5.0.0"}
+		@{"ModuleName"="VMware.VimAutomation.Core";"ModuleVersion"="11.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -83,7 +84,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'get-pfaVolfromVMFS','new-pfaVolVmfs','add-pfaVolVmfsToCluster','set-pfaVolVmfsCapacity','get-pfaVolVmfsSnapshot','new-pfaVolVmfsSnapshot','new-pfaVolVmfsFromSnapshot'
+	FunctionsToExport = 'Get-PfaVMFSVol','New-PfaVmfs','Add-PfaVmfsToCluster','Set-PfaVmfsCapacity','Get-PfaVmfsSnapshot','New-PfaVmfsSnapshot'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -92,7 +93,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'get-faVolfromVMFS','new-faVolVmfs','add-faVolVmfsToCluster','set-faVolVmfsCapacity','get-faVolVmfsSnapshots','new-faVolVmfsSnapshot','new-faVolVmfsFromSnapshot'
+	AliasesToExport = 'get-faVolfromVMFS','new-faVolVmfs','add-faVolVmfsToCluster','set-faVolVmfsCapacity','get-faVolVmfsSnapshots','new-faVolVmfsSnapshot','new-faVolVmfsFromSnapshot','get-pfaVolfromVMFS','new-pfaVolVmfs','add-pfaVolVmfsToCluster','set-pfaVolVmfsCapacity','get-pfaVolVmfsSnapshot','New-PfaVolVmfsSnapshot','New-PfaVolVmfsFromSnapshot'
 	
 	# List of all modules packaged with this module
 	ModuleList = @()
