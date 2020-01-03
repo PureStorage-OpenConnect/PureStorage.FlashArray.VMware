@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Software.psd1
-	 Version:		1.1.0.1
+	 Version:		1.2.0.1
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareSoftwarePowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Software.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.1.0.1'
+	ModuleVersion = '1.2.0.1'
 	
 	# ID used to uniquely identify this module
 	GUID = '1a8ffc6d-02ae-4406-b51e-73c8d543b7ac'
@@ -82,7 +82,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Install-PfavSpherePlugin','Get-PfavSpherePlugin','Deploy-PfaAppliance','Get-PfaAppliance'
+	FunctionsToExport = 'Install-PfavSpherePlugin','Get-PfavSpherePlugin','Uninstall-PfavSpherePlugin','Deploy-PfaAppliance','Get-PfaAppliance'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'

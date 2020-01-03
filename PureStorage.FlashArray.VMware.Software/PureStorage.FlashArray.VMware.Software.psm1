@@ -45,20 +45,16 @@ function Install-PfavSpherePlugin {
 
   [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High',DefaultParameterSetName='Version')]
   Param(
-          [Parameter(ParameterSetName='HTMLFA',Position=0,ValueFromPipeline=$True)]
-          [Parameter(ParameterSetName='FlashFA',Position=0,ValueFromPipeline=$True)]
+          [Parameter(Position=0,ValueFromPipeline=$True,ParameterSetName='FA')]
           [PurePowerShell.PureArray]$flasharray,
 
-          [Parameter(ParameterSetName='HTMLSource',Position=1)]
-          [Parameter(ParameterSetName='FlashSource',Position=1)]
+          [Parameter(Position=1)]
           [string]$source,
 
-          [Parameter(ParameterSetName='HTMLSource',Position=2)]
-          [Parameter(ParameterSetName='HTMLFA',Position=2)]
+          [Parameter(ParameterSetName='HTML',Position=2)]
           [switch]$html,
 
-          [Parameter(ParameterSetName='FlashSource',Position=3)]
-          [Parameter(ParameterSetName='FlashFA',Position=3)]
+          [Parameter(ParameterSetName='Flash',Position=3)]
           [switch]$flash,
 
           [ValidateScript({
@@ -70,13 +66,15 @@ function Install-PfavSpherePlugin {
               throw "The version must be in the format of x.x.x. Like 4.2.0 or 3.1.3."
             }
           })]
-          [Parameter(ParameterSetName='HTMLSource',Position=4)]
-          [Parameter(ParameterSetName='FlashSource',Position=4)]
-          [Parameter(ParameterSetName='FlashFA',Position=4)]
-          [Parameter(ParameterSetName='HTMLFA',Position=4)]
+          [Parameter(ParameterSetName='HTML',Position=4)]
+          [Parameter(ParameterSetName='Flash',Position=4)]
           [Parameter(ParameterSetName='Version',Position=4)]
           [string]$version
       )
+  if (($null -ne $source) -and ($null -ne $flasharray))
+  {
+    throw "Please only enter a FlashArray or source address as installation target, not both."
+  }
   if ($null -eq $global:defaultviserver)
   {
     throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
@@ -445,15 +443,6 @@ function Get-PfavSpherePlugin {
           [Parameter(Position=3)]
           [switch]$flash,
 
-          [ValidateScript({
-            if ($_ -match '[0-9]+\.[0-9]+\.[0-9]+$')
-            {
-              $true
-            }
-            else {
-              throw "The version must be in the format of: <x.x.x> like 4.2.0 or 3.1.3"
-            }
-          })]
           [Parameter(Position=4)]
           [string]$version
       )
@@ -641,6 +630,75 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     $plugins = $plugins |Where-Object {$_.Version -eq $version}
   }
   return $plugins
+}
+function Uninstall-PfavSpherePlugin {
+  <#
+  .SYNOPSIS
+    Uninstall the Pure Storage FlashArray vSphere Plugin
+  .DESCRIPTION
+    Uninstall the Flash or HTML Pure Storage FlashArray vSphere Plugin from the connected vCenter
+  .INPUTS
+    HTML or Flash
+  .OUTPUTS
+    No output unless there is an error.
+  .EXAMPLE
+    PS C:\ Uninstall-PfavSpherePlugin -html
+    
+    Uninstalls the HTML-5-based plugin from a vCenter.
+  .EXAMPLE
+    PS C:\ Uninstall-PfavSpherePlugin -flash
+    
+    Uninstalls the flash-based plugin from a vCenter.
+
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  01/02/2020
+    Purpose/Change: New cmdlet
+
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+          [Parameter(ParameterSetName='HTML',Position=0,mandatory=$true)]
+          [switch]$html,
+
+          [Parameter(ParameterSetName='Flash',Position=0,mandatory=$true)]
+          [switch]$flash
+  )
+  $ErrorActionPreference = "stop"
+  #gather extension manager
+  $services = Get-view 'ServiceInstance'
+  $extensionMgr  = Get-view $services.Content.ExtensionManager
+
+  #find what plugins are installed and their version
+  if ($html -eq $true)
+  {
+    $installedVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
+    if ($null -eq $installedVersion)
+    {
+      throw "The HTML-5 plugin is not currently installed in this vCenter."
+    }
+    $extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
+    write-host "Pure Storage HTML-5 plugin has been uninstalled."
+
+  }
+  else {
+    $installedVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
+    if ($null -eq $installedVersion)
+    {
+      throw "The flash plugin is not currently installed in this vCenter."
+    }
+    $extensionMgr.UnregisterExtension("com.purestorage.plugin.vsphere")
+    write-host "Pure Storage flash plugin has been uninstalled."
+  }
 }
 function Deploy-PfaAppliance {
   <#
