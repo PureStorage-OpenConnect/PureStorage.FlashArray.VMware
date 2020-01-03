@@ -1,3 +1,4 @@
+import-module VMware.VimAutomation.Core
 function Install-PfavSpherePlugin {
   <#
   .SYNOPSIS
