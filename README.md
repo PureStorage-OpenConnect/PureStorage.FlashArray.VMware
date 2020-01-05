@@ -5,7 +5,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Latest version 1.4.0.2 (January 2nd, 2020)</strong></p>
+<p><strong>Latest version 1.4.1.0 (January 4th, 2020)</strong></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -37,19 +37,23 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>It requires PowerCLI and the <a href="https://www.powershellgallery.com/packages/PureStoragePowerShellSDK/">PureStorage PowerShell SDK</a> to be installed, the Pure Storage PowerShell SDK will be automatically installed when you do <em>install-module</em> if it is not already.</p>
+<p>It requires PowerCLI... </p>
 <!-- /wp:paragraph -->
 
 <!-- wp:image {"id":6278,"sizeSlug":"large"} -->
 <figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-2.png" alt="" class="wp-image-6278"/></figure>
 <!-- /wp:image -->
 
+<!-- wp:paragraph -->
+<p>...and the <a href="https://www.powershellgallery.com/packages/PureStoragePowerShellSDK/">PureStorage PowerShell SDK</a> to be installed, the Pure Storage PowerShell SDK will be automatically installed when you install this module if it is not already. </p>
+<!-- /wp:paragraph -->
+
 <!-- wp:image {"id":6277,"sizeSlug":"large"} -->
 <figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-1.png" alt="" class="wp-image-6277"/></figure>
 <!-- /wp:image -->
 
-<!-- wp:image {"id":6276,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-1024x359.png" alt="" class="wp-image-6276"/></figure>
+<!-- wp:image {"id":6300,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-13-1024x357.png" alt="" class="wp-image-6300"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
@@ -84,8 +88,8 @@
 <p>For all available commands, use<em> get-command</em>:</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6280,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-3-1024x986.png" alt="" class="wp-image-6280"/></figure>
+<!-- wp:image {"id":6302,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-14-1024x984.png" alt="" class="wp-image-6302"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
@@ -108,8 +112,8 @@
 <ul><li>W is iterated for large updates</li><li>X is iterated for new cmdlets</li><li>Y is iterated for new functions to existing cmdlets</li><li>Z is iterated for bug fixes</li></ul>
 <!-- /wp:list -->
 
-<h2> </h2>
-<p> </p>
+<h2>&nbsp;</h2>
+<p></p>
 <p><!--EndFragment--></p>
 
 <!-- wp:paragraph -->
