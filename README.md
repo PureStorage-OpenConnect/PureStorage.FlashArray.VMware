@@ -1,3 +1,7 @@
+<!-- wp:heading -->
+<h2>Pure Storage VMware PowerShell Module Help Info</h2>
+<!-- /wp:heading -->
+
 <p><!--StartFragment--></p>
 
 <!-- wp:paragraph -->
