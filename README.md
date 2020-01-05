@@ -1,7 +1,6 @@
 <!-- wp:heading -->
 <h2>Pure Storage VMware PowerShell Module Help Info</h2>
 <!-- /wp:heading -->
-
 <p><!--StartFragment--></p>
 
 <!-- wp:paragraph -->
@@ -56,8 +55,8 @@
 <figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-1.png" alt="" class="wp-image-6277"/></figure>
 <!-- /wp:image -->
 
-<!-- wp:image {"id":6300,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-13-1024x357.png" alt="" class="wp-image-6300"/></figure>
+<!-- wp:image {"id":6305,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-15-1024x370.png" alt="" class="wp-image-6305"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
@@ -92,8 +91,8 @@
 <p>For all available commands, use<em> get-command</em>:</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6302,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-14-1024x984.png" alt="" class="wp-image-6302"/></figure>
+<!-- wp:image {"id":6306,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-16-1024x985.png" alt="" class="wp-image-6306"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
