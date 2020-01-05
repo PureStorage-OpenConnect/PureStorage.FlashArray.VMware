@@ -9,7 +9,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Latest version 1.4.1.0 (January 4th, 2020)</strong></p>
+<p><strong>Latest version 1.4.1.1 (January 4th, 2020)</strong></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
