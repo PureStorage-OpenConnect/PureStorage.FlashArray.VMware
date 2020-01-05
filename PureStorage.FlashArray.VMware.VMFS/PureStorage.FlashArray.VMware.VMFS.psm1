@@ -368,10 +368,10 @@ function Set-PfaVmfsCapacity {
     .OUTPUTS
       Returns the datastore.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  01/04/2019
+      Purpose/Change: Updated to remove code that causes deprecation warning from VMware
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -441,13 +441,17 @@ function Set-PfaVmfsCapacity {
     }
     Resize-PfaVolume -Array $fa -VolumeName $pureVol.name -NewSize $volSize -ErrorAction Stop |Out-Null
     $Global:CurrentFlashArray = $fa
-    $datastore| Get-VMHost | Get-VMHostStorage -RescanAllHba -RescanVmfs -ErrorAction Stop  -WarningAction SilentlyContinue |Out-Null
+    foreach ($dsHost in $datastore.ExtensionData.Host.Key)
+    {
+      #had to change this as get-vmhost -datastore spits out a deprecation error.
+      get-vmhost -id "HostSystem-$($dsHost.value)" | Get-VMHostStorage -RescanAllHba -RescanVmfs -ErrorAction Stop  -WarningAction SilentlyContinue |Out-Null
+    }
     $esxiView = Get-View -Id ($Datastore.ExtensionData.Host |Select-Object -last 1 | Select-Object -ExpandProperty Key)
     $datastoreSystem = Get-View -Id $esxiView.ConfigManager.DatastoreSystem
     $expandOptions = $datastoreSystem.QueryVmfsDatastoreExpandOptions($datastore.ExtensionData.MoRef)
     $expandedDS = $datastoreSystem.ExpandVmfsDatastore($datastore.ExtensionData.MoRef,$expandOptions[0].spec)
     $ds = get-datastore -Id $expandedDS
-    return $ds
+    return $ds 
 }
 function Get-PfaVmfsSnapshot {
     <#
