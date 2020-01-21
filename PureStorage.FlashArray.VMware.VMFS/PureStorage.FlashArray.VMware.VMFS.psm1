@@ -713,7 +713,19 @@ function New-PfaVmfsFromSnapshot {
           [Parameter(Position=2,mandatory=$true)]
           [string]$snapName
   )
-  $volumeName = $snapName.split(".")[0] + "-snap-" + (Get-Random -Minimum 1000 -Maximum 9999)
+  $volumeName = $snapName.split(".")
+  if ($volumeName.count -eq 3)
+  {
+    $volumeName = $volumeName[2]
+  } elseif ($volumeName.count -eq 2) 
+  {
+    $volumeName = $volumeName[0]
+  }
+  $volumeName = $volumeName.Split("/")
+  if ($volumeName.count -eq 2) {
+    $volumeName = $volumeName[1]
+  }
+  $volumeName = "$($volumeName)-snap-" + (Get-Random -Minimum 1000 -Maximum 9999)
   $newVol =New-PfaVolume -Array $flasharray -Source $snapName -VolumeName $volumeName -ErrorAction Stop
   $hostGroup = $flasharray |get-pfaHostGroupfromVcCluster -cluster $cluster
   New-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newVol.name -HostGroupName $hostGroup.name |Out-Null
