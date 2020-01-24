@@ -992,14 +992,14 @@ function Get-PfaVasaProvider {
   .OUTPUTS
     Returns the VASA Provider
   .EXAMPLE
-    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -nonDefaultArray
-    PS C:\ Get-PfaVasaProvider -flasharray $Global:AllFlashArrays[0]
+    PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -DefaultArray
+    PS C:\ Get-PfaVasaProvider -flasharray $Global:DefaultFlashArray
 
     Connect to a FlashArray and return the current active VASA Provider for that FlashArray.
   .NOTES
-    Version:        1.0
+    Version:        1.1
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  06/28/2019
+    Creation Date:  01/23/2020
     Purpose/Change: First release
 
   *******Disclaimer:******************************************************
@@ -1017,14 +1017,11 @@ function Get-PfaVasaProvider {
           [PurePowerShell.PureArray]$flasharray
       )
       $faID = "com.purestorage:" + (Get-PfaArrayAttributes -Array $flasharray).id
-      $faName = (Get-PfaArrayAttributes -Array $flasharray).array_name
-      $faultDomain = Get-SpbmFaultDomain -Name $faName -ErrorAction Stop
-      if ($faultDomain.StorageArray.Id -eq $faID)
-      {
-        return $faultDomain.VasaProvider
+      try {
+        $vp = (Get-VasaStorageArray -Id $faid -ErrorAction Stop).provider
+        return $vp
       }
-      else 
-      {
+      catch {
         throw "No registered VASA provider found for this array."
       }
 }
