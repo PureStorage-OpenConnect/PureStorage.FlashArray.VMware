@@ -684,6 +684,7 @@ function Uninstall-PfavSpherePlugin {
   $extensionMgr  = Get-view $services.Content.ExtensionManager
   $htmlPluginVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
   $flashPluginVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
+  $customAttributes = "Pure Flash Array Key Count","Pure Flash Array Key0","Pure1Count","Pure1Key0"
 
   if (($html -ne $true) -and ($flash -ne $true))
   {
@@ -712,6 +713,13 @@ function Uninstall-PfavSpherePlugin {
     if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
     {
       $extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
+      try {
+      $customAttributes | % {Get-CustomAttribute -Name $_} | Remove-CustomAttribute -Confirm:$false
+      } 
+      catch {
+        $customAttributes = "Pure1Count","Pure1Key0"
+        $customAttributes | % {Get-CustomAttribute -Name $_} | Remove-CustomAttribute -Confirm:$false
+      }
       write-host "Pure Storage HTML-5 plugin has been uninstalled."
     }
   }
