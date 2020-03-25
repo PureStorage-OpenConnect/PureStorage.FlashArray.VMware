@@ -684,7 +684,6 @@ function Uninstall-PfavSpherePlugin {
   $extensionMgr  = Get-view $services.Content.ExtensionManager
   $htmlPluginVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
   $flashPluginVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
-  $customAttributes = "Pure Flash Array Key Count","Pure Flash Array Key0","Pure1Count","Pure1Key0"
 
   if (($html -ne $true) -and ($flash -ne $true))
   {
@@ -712,15 +711,29 @@ function Uninstall-PfavSpherePlugin {
     $confirmText = "Uninstall HTML-5 plugin version $($htmlPluginVersion) on vCenter $($global:DefaultVIServer.name)?"
     if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
     {
-      $extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
-      try {
-      $customAttributes | % {Get-CustomAttribute -Name $_} | Remove-CustomAttribute -Confirm:$false
-      } 
-      catch {
-        $customAttributes = "Pure1Count","Pure1Key0"
-        $customAttributes | % {Get-CustomAttribute -Name $_} | Remove-CustomAttribute -Confirm:$false
+      #extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
+      #Remove Custom Attribute Keys
+    $customAttributes = Get-CustomAttribute Pure*
+    foreach ($attribute in $customAttributes) {
+      if ($attribute.Name -like "Pure1Count") {
+        Remove-CustomAttribute $attribute.Name -Confirm:$false
       }
-      write-host "Pure Storage HTML-5 plugin has been uninstalled."
+      elseif ($attribute.Name -like "Pure1Key0") {
+        Remove-CustomAttribute $attribute.Name -Confirm:$false
+      }
+      elseif ($attribute.Name -like "Pure1Count") {
+        Remove-CustomAttribute $attribute.Name -Confirm:$false
+      }
+      elseif ($attribute.Name -like "Pure Flash Array Key Count") {
+        $fl = get-folder
+        $PureFlashArrayKeyCount = (Get-Annotation -CustomAttribute "Pure Flash Array Key Count" -Entity ($fl[0].Name)).value
+        foreach ($Key in 1..$PureFlashArrayKeyCount) {
+          Get-CustomAttribute -Name "Pure Flash Array Key[$($key - 1)]" | Remove-CustomAttribute -Confirm:$false
+        }
+        Remove-CustomAttribute $attribute.Name -Confirm:$false
+      }
+    }
+    write-host "Pure Storage HTML-5 plugin has been uninstalled."
     }
   }
   else {
