@@ -711,8 +711,9 @@ function Uninstall-PfavSpherePlugin {
     $confirmText = "Uninstall HTML-5 plugin version $($htmlPluginVersion) on vCenter $($global:DefaultVIServer.name)?"
     if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
     {
-      #extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
-      #Remove Custom Attribute Keys
+    extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
+    
+    #Remove Custom Attribute Keys
     $customAttributes = Get-CustomAttribute Pure*
     foreach ($attribute in $customAttributes) {
       if ($attribute.Name -like "Pure1Count") {
