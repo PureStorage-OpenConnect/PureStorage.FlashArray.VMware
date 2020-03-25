@@ -674,13 +674,13 @@ function Uninstall-PfavSpherePlugin {
   Param(
           [Parameter(ParameterSetName='HTML',Position=0)]
           [switch]$html,
-
           [Parameter(ParameterSetName='Flash',Position=0)]
           [switch]$flash,
-
-          [Parameter(ParameterSetName='PreserveAuthentication',Position=0)]
-          [switch]$preserveAuthentication
+          [Parameter(ParameterSetName='HTML',Position=1)]
+          [Parameter(ParameterSetName='Flash',Position=1)]
+          [switch]$PreserveAuthentication
   )
+  
   $ErrorActionPreference = "stop"
   #gather extension manager
   $services = Get-view 'ServiceInstance'
@@ -716,7 +716,7 @@ function Uninstall-PfavSpherePlugin {
     {
     extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
     
-    if ($preserveAuthentication -eq $true) {
+    if ($PreserveAuthentication -eq $true) {
       Write-Host "Preserving Authentication Attributes"
     }
     else {
@@ -755,6 +755,33 @@ function Uninstall-PfavSpherePlugin {
     if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
     {
       $extensionMgr.UnregisterExtension("com.purestorage.plugin.vsphere")
+      if ($PreserveAuthentication -eq $true) {
+        Write-Host "Preserving Authentication Attributes"
+      }
+      else {
+      #Remove Custom Attribute Keys
+      Write-Host "Removing Authentication Attributes"
+      $customAttributes = Get-CustomAttribute Pure*
+        foreach ($attribute in $customAttributes) {
+          if ($attribute.Name -like "Pure1Count") {
+            Remove-CustomAttribute $attribute.Name -Confirm:$false
+          }
+          elseif ($attribute.Name -like "Pure1Key0") {
+            Remove-CustomAttribute $attribute.Name -Confirm:$false
+          }
+          elseif ($attribute.Name -like "Pure1Count") {
+            Remove-CustomAttribute $attribute.Name -Confirm:$false
+          }
+          elseif ($attribute.Name -like "Pure Flash Array Key Count") {
+            $fl = get-folder
+            $PureFlashArrayKeyCount = (Get-Annotation -CustomAttribute "Pure Flash Array Key Count" -Entity ($fl[0].Name)).value
+            foreach ($Key in 1..$PureFlashArrayKeyCount) {
+              Get-CustomAttribute -Name "Pure Flash Array Key[$($key - 1)]" | Remove-CustomAttribute -Confirm:$false
+            }
+            Remove-CustomAttribute $attribute.Name -Confirm:$false
+          }
+        }
+      }
       write-host "Pure Storage flash plugin has been uninstalled."
     }
   }
