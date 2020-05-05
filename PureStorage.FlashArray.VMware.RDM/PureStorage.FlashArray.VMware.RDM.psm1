@@ -101,8 +101,7 @@ function New-PfaRDM {
         $volName = "$($vm.Name)-rdm$($rand)"
         if ($volName -notmatch "^[a-zA-Z0-9\-]+$")
         {
-            $volName = $volName -replace "[^\w\-]", ""
-            $volName = $volName -replace "[_]", ""
+            $volName = $volName -replace "[^\w\-_]", ""
             $volName = $volName -replace " ", ""
         }
     }

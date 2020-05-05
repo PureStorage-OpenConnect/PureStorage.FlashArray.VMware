@@ -124,7 +124,7 @@ function New-PfaVmfs {
             [Parameter(ParameterSetName='GB',Position=2,mandatory=$true)]
             [Parameter(ParameterSetName='TB',Position=2,mandatory=$true)]
             [ValidateScript({
-              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
+              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
               {
                 $true
               }
@@ -595,7 +595,7 @@ function New-PfaVmfsSnapshot {
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore[]]$datastore,
 
             [ValidateScript({
-              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
+              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
               {
                 $true
               }
@@ -607,7 +607,7 @@ function New-PfaVmfsSnapshot {
             [string]$SnapName,
 
             [ValidateScript({
-              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
+              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
               {
                 $true
               }
