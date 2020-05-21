@@ -8,7 +8,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Latest version 1.4.1.4 (May 5th, 2020)</strong></p>
+<p><strong>Latest version 1.4.2.0 (May 21st, 2020)</strong></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
