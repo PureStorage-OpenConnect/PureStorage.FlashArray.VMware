@@ -29,7 +29,7 @@
 	RootModule = ''
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.4.1.4'
+	ModuleVersion = '1.4.2.0'
 	
 	# ID used to uniquely identify this module
 	GUID = 'a38571e9-918e-4542-bebc-b5294ad4ffbb'
