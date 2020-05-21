@@ -72,7 +72,7 @@
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="1.5.0.1"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.vVol";"ModuleVersion"="1.4.0.2"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Pure1";"ModuleVersion"="1.0.0.1"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="1.3.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="1.5.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module

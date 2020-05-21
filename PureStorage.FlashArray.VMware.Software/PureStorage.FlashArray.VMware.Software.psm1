@@ -21,15 +21,14 @@ function Install-PfavSpherePlugin {
     
     Installs the Flash 3.1.2 plugin located on Pure1 to the connected vCenter.  
   .EXAMPLE
-    PS C:\ $fa = new-pfaconnection -endpoint flasharray-m20-1.purecloud.com -credentials (get-credential) -DefaultArray
-    PS C:\ Install-PfavSpherePlugin -flasharray $fa
+    PS C:\ Install-PfavSpherePlugin -customSource https://myflasharray.pure.com/plugin.zip
     
-    Installs the plugin that is hosted on the specified FlashArray to the connected vCenter. 
+    Installs the plugin that is hosted on the specified HTTPS zip source (a web server or object target) to the connected vCenter. 
 
   .NOTES
-    Version:        2.0
+    Version:        3.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  01/04/2020
+    Creation Date:  05/20/2020
     Purpose/Change: Added parameter sets and validation
 
   *******Disclaimer:******************************************************
@@ -43,13 +42,12 @@ function Install-PfavSpherePlugin {
 
   [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High',DefaultParameterSetName='Version')]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True,ParameterSetName='FA')]
-          [PurePowerShell.PureArray]$flasharray,
-
-          [Parameter(ParameterSetName='HTML',Position=1)]
+          [Parameter(ParameterSetName='HTML',Position=0)]
+          [Parameter(ParameterSetName='Custom',Position=0)]
           [switch]$html,
 
-          [Parameter(ParameterSetName='Flash',Position=2)]
+          [Parameter(ParameterSetName='Flash',Position=1)]
+          [Parameter(ParameterSetName='Custom',Position=1)]
           [switch]$flash,
 
           [ValidateScript({
@@ -61,22 +59,38 @@ function Install-PfavSpherePlugin {
               throw "The version must be in the format of x.x.x. Like 4.2.0 or 3.1.3."
             }
           })]
-          [Parameter(ParameterSetName='HTML',Position=3)]
-          [Parameter(ParameterSetName='Flash',Position=3)]
-          [Parameter(ParameterSetName='Version',Position=3)]
-          [string]$version
+          [Parameter(ParameterSetName='HTML',Position=2)]
+          [Parameter(ParameterSetName='Flash',Position=2)]
+          [Parameter(ParameterSetName='Version',Position=2)]
+          [Parameter(ParameterSetName='Custom',Position=2,mandatory=$true)]
+          [string]$version,
+
+          [ValidateScript({
+            if ($_ -like "https://*.zip*")
+            {
+              $true
+            }
+            else {
+              throw "The custom source must be a https URL ending with a zip file of the plugin, like https://mywebserver.pure.com/vsphereplugin.zip."
+            }
+          })]
+          [Parameter(ParameterSetName='Custom',Position=2)]
+          [string]$customSource
       )
+  if (!([string]::IsNullOrWhiteSpace($customSource)))
+  {
+    if ($html -eq $flash)
+    {
+      throw "You must specify either flash or HTML, not both, and not neither."
+    }
+  }
+  else {
+    $pure1 = $true
+  }
   $ErrorActionPreference = "Stop"
   if ($null -eq $global:defaultviserver)
   {
     throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
-  }
-  if ($null -eq $flasharray)
-  {
-    $pure1 = $true
-  }
-  else {
-    $pure1 = $false
   }
   ####Check vCenter versions and plugin version compatibility
   $vCenterVersion = ($global:DefaultVIServer | Select-Object Version).version
@@ -117,23 +131,6 @@ function Install-PfavSpherePlugin {
       throw "The specified version $($version) is not a valid version for the flash plugin. Must be 3.x.x or lower."
     }
   }
-  
-  #find source address
-  if ($null -ne $flasharray)
-  {
-    $ipAddress = (Get-PfaNetworkInterface -Array $flasharray -Name vir0).address
-  }
-  else
-  {
-    if ($flash -eq $true)
-    {
-      $ipAddress = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip"
-    }
-    else 
-    {
-      $ipAddress = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5/purestorage-vsphere-plugin.zip"
-    }
-  }
   #gather extension manager
   $services = Get-view 'ServiceInstance'
   $extensionMgr  = Get-view $services.Content.ExtensionManager
@@ -142,24 +139,10 @@ function Install-PfavSpherePlugin {
   $installedHtmlVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
   $installedFlashVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
 
-add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-  public bool CheckValidationResult(
-      ServicePoint srvPoint, X509Certificate certificate,
-      WebRequest request, int certificateProblem) {
-      return true;
-  }
-}
-"@
-  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-
   #identify available plugin versions.
-  $global:pfavSpherePluginUrl = $true
   if ($pure1 -eq $true)
   {
+    $global:pfavSpherePluginUrl = $true
     if (!([string]::IsNullOrWhiteSpace($version)))
     {
       $fullPluginInfo = Get-PfavSpherePlugin -version $version -html:$html -flash:$flash -previous
@@ -167,20 +150,20 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     else {
       $fullPluginInfo = Get-PfavSpherePlugin -html:$html -flash:$flash
     }
+    if ($null -eq $fullPluginInfo)
+    {
+      throw "Specified plugin type or version not found on available source"
+    }
+    if ($fullPluginInfo.count -gt 1)
+    {
+      throw "Too many plugin versions returned. Internal script error!"
+    }
+    $hostedVersion = $fullPluginInfo.version
+    $global:pfavSpherePluginUrl = $null
   }
   else {
-    $fullPluginInfo = Get-PfavSpherePlugin -flasharray $flasharray -skipPure1
+    $hostedVersion = $version
   }
-  if ($null -eq $fullPluginInfo)
-  {
-    throw "Specified plugin type or version not found on available source"
-  }
-  if ($fullPluginInfo.count -gt 1)
-  {
-    throw "Too many plugin versions returned. Internal script error!"
-  }
-  $hostedVersion = $fullPluginInfo.version
-  $global:pfavSpherePluginUrl = $null
   #find out what plugin will be installed and whether it is an upgrade. Will fail if newer version is on vCenter
   $upgrade = $false
   if ($hostedVersion.split(".")[0] -ge 4)
@@ -263,7 +246,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
           }
       }
   }
-  
   #build extension to register. Will pull the SSL thumprint from the target address
   $description = New-Object VMware.Vim.Description
   $description.label = "Pure Storage Plugin"
@@ -274,21 +256,23 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   $extensionClientInfo.Company = "Pure Storage, Inc."
   $extensionClientInfo.Description = $description
   $extensionClientInfo.Type = 	"vsphere-client-serenity"
-  $extensionClientInfo.Url = $fullPluginInfo.URL
   $extensionClientInfo.Version = $hostedVersion
 
   $extensionServerInfo = New-Object VMware.Vim.ExtensionServerInfo
   $extensionServerInfo.AdminEmail = "admin@purestorage.com"
   $extensionServerInfo.Company = "Pure Storage, Inc."
   $extensionServerInfo.Description = $description
-  $extensionServerInfo.Url = $fullPluginInfo.URL
   if ($pure1 -eq $true)
   {
+    $extensionServerInfo.Url = $fullPluginInfo.URL
+    $extensionClientInfo.Url = $fullPluginInfo.URL
     $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint $fullPluginInfo.URL)
   }
   else 
   {
-    $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint "https://$($ipAddress)")
+    $extensionServerInfo.Url = $customSource
+    $extensionClientInfo.Url = $customSource
+    $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint "$($customSource)")
   }
   $extensionServerInfo.Type = "https"
 
@@ -313,7 +297,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
   if ($pure1 -eq $false)
   {
-    $source = $ipAddress
+    $source = $customSource
   }
   else {
     $source = "Pure1"
@@ -326,19 +310,26 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   else {
     $confirmText = "Install $($pluginType) plugin version $($hostedVersion) on vCenter $($global:DefaultVIServer.name)?"
   }
-
   if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Using $($source) as the download location`n`r")) 
   {
     #install or upgrade the vSphere plugin
-    if ($upgrade -eq $true)
-    {
-        $extensionMgr.UpdateExtension($extensionSpec)
+    Write-Debug ($extensionSpec.Server |Out-String)
+    Write-Debug ($extensionSpec.Client |Out-String)
+    try {
+      if ($upgrade -eq $true)
+      {
+          $extensionMgr.UpdateExtension($extensionSpec)
+      }
+      else 
+      {
+          $extensionMgr.RegisterExtension($extensionSpec)
+      }
+      write-host "Successfully installed $($pluginType) plugin version $($hostedVersion) on vCenter $($global:DefaultVIServer.name)." -ForegroundColor Green
     }
-    else 
-    {
-        $extensionMgr.RegisterExtension($extensionSpec)
+    catch {
+      throw "Failed to install the vSphere plugin."
     }
-    return $extensionMgr.FindExtension($extensionSpec.Key)
+    write-debug ($extensionMgr.FindExtension($extensionSpec.Key) | Out-String)
   }
 }
 function Get-PfavSpherePlugin {
@@ -348,7 +339,7 @@ function Get-PfavSpherePlugin {
   .DESCRIPTION
     Retrieves version of FlashArray vSphere Plugin on one or more FlashArrays
   .INPUTS
-    One or more FlashArray connections
+    Versions or plugin type
   .OUTPUTS
     Returns plugin version for each array and/or Pure1.
   .EXAMPLE
@@ -360,27 +351,14 @@ function Get-PfavSpherePlugin {
     
     Retrieves all of the vSphere plugin versions (old and latest) available on Pure1.
   .EXAMPLE
-    PS C:\ $fa = new-pfaarray -endpoint flasharray-m20-1 -credentials (get-credential) -ignoreCertificateError 
-    PS C:\ Get-PfavSpherePlugin -FlashArray $fa
+    PS C:\ Get-PfavSpherePlugin -html
     
-    Retrieves the vSphere plugin version from the target FlashArray connection and Pure1.
-  .EXAMPLE
-    PS C:\ new-pfaconnection -endpoint flasharray-m20-1 -credentials (get-credential) -ignoreCertificateError -nonDefaultArray
-    PS C:\ new-pfaconnection -endpoint flasharray-420-1 -credentials (get-credential) -ignoreCertificateError -nonDefaultArray
-    PS C:\ Get-PfavSpherePlugin 
-    
-    Retrieves the vSphere plugin version from the FlashArray connections stored in the global variable $Global:AllFlashArrays and Pure1.
-  .EXAMPLE
-    PS C:\ $fa = new-pfaarray -endpoint flasharray-m20-1 -credentials (get-credential) -ignoreCertificateError 
-    PS C:\ Get-PfavSpherePlugin -FlashArray $fa -skipPure1
-    
-    Retrieves the vSphere plugin version from the target FlashArray connection and does NOT query Pure1.
-
+    Retrieves the vSphere plugin HTML release available on Pure1.
   .NOTES
-    Version:        2.0
+    Version:        3.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  01/04/2020
-    Purpose/Change: Parameter validation.
+    Creation Date:  05/20/2020
+    Purpose/Change: Core support
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -391,168 +369,22 @@ function Get-PfavSpherePlugin {
   ************************************************************************
   #>
 
-  [CmdletBinding(DefaultParameterSetName='Pure1')]
+  [CmdletBinding()]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True)]
-          [PurePowerShell.PureArray[]]$flasharray,
-
-          [Parameter(Position=1,ParameterSetName='SkipPure1')]
-          [switch]$skipPure1,
-
-          [Parameter(Position=2)]
+          [Parameter(Position=0)]
           [switch]$html,
 
-          [Parameter(Position=3)]
+          [Parameter(Position=1)]
           [switch]$flash,
 
-          [Parameter(Position=4)]
+          [Parameter(Position=2)]
           [string]$version,
 
-          [Parameter(Position=5,ParameterSetName='Pure1')]
+          [Parameter(Position=3)]
           [switch]$previous
       )
-  if ($flasharray.count -eq 0)
-  {
-      $flasharray = $Global:AllFlashArrays
-      if (($flasharray.count -eq 0) -and ($skipPure1 -eq $True))
-      {
-        throw "You must either enter a FlashArray connection and/or not specify -skipPure1."
-      }
-  }
-  #identify version of the plugin on the array
-  $targetAddresses = @()
-  foreach ($fa in $flasharray)
-  {
-    $ipAddress = (Get-PfaNetworkInterface -Array $fa -Name vir0).address
-    try {
-      $targetAddresses += ([system.net.dns]::GetHostByAddress($ipAddress)).HostName
-    }
-    catch {
-      $targetAddresses += $ipAddress
-    }
-  }
-  add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-  public bool CheckValidationResult(
-      ServicePoint srvPoint, X509Certificate certificate,
-      WebRequest request, int certificateProblem) {
-      return true;
-  }
-}
-"@
-  $identifiedArrays = @()
-  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-    $hostedVersions = @()
-    $hostedVersionUrls = @()
-    foreach ($targetAddress in $targetAddresses)
-    {
-        $hostedVersion = $null
-        if ([string]::IsNullOrWhiteSpace($version))
-        {
-            for ($major=0; $major -le 4; $major++)
-            {
-                if ($null -ne $hostedVersion)
-                {
-                    break
-                }
-                for ($minor=0; $minor -le 3; $minor++)
-                {
-                    $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.$($major).$($minor)")
-                    try {
-                        $HTTP_Response = $null
-                        $HTTP_Request.Timeout = 500
-                        $HTTP_Response = $HTTP_Request.GetResponse() 
-                        $HTTP_Status = [int]$HTTP_Response.StatusCode
-                        If ($HTTP_Status -eq 200) 
-                        {
-                            $hostedVersion = "4.$($major).$($minor)"
-                            $hostedVersions += $hostedVersion
-                            $hostedVersionUrls += "https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=4.$($major).$($minor)"
-                            $identifiedArrays += $targetAddress
-                            break
-                        }
-                    }
-                    catch {}
-                }
-            }
-            if ($null -eq $hostedVersion)
-            {
-                for ($major=1; $major -le 1; $major++)
-                {
-                    if ($null -ne $hostedVersion)
-                    {
-                        break
-                    }
-                    for ($minor=0; $minor -le 4; $minor++)
-                    {
-                        $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=3.$($major).$($minor)")
-                        try {
-                            $HTTP_Response = $null
-                            $HTTP_Request.Timeout = 500
-                            $HTTP_Response = $HTTP_Request.GetResponse() 
-                            $HTTP_Status = [int]$HTTP_Response.StatusCode
-                            If ($HTTP_Status -eq 200) 
-                            {
-                                $hostedVersion = "3.$($major).$($minor)"
-                                $hostedVersions += $hostedVersion
-                                $hostedVersionUrls += "https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=3.$($major).$($minor)"
-                                $identifiedArrays += $targetAddress
-                                break
-                            }
-                        }
-                        catch {}
-                    }
-                }
-            }
-        }
-        else 
-        {
-            $HTTP_Request = [System.Net.WebRequest]::Create("https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=$($version)")
-            try {
-                $HTTP_Response = $null
-                $HTTP_Request.Timeout = 3000
-                $HTTP_Response = $HTTP_Request.GetResponse() 
-                $HTTP_Status = [int]$HTTP_Response.StatusCode
-                If ($HTTP_Status -eq 200) 
-                {
-                    $hostedVersion = $version
-                    $hostedVersions += $hostedVersion
-                    $hostedVersionUrls += "https://$($targetAddress)/download/purestorage-vsphere-plugin.zip?version=$($version)"
-                    $identifiedArrays += $targetAddress
-                }
-            }
-            catch {
-              if ($_.Exception.InnerException -like "*The operation has timed out*")
-              {
-                throw "Version checking on the FlashArray $($targetAddress) has failed due to a timeout. Closing PowerShell and re-running should fix this issue."
-              }
-            }
-        }
-    }
+  
     $plugins =@()
-    $arrays = 0
-    foreach ($plugin in $hostedVersions)
-    {
-      $Result = $null
-      $Result = "" | Select-Object Source,Type,Version,URL
-      $Result.Source = $identifiedArrays[$arrays]
-      $Result.Version = $plugin
-      $Result.URL = $hostedVersionUrls[$arrays]
-      if ($plugin.split(".")[0] -ge 4)
-      {
-        $Result.Type = "HTML-5"
-      }
-      else {
-        $Result.Type = "Flash"
-      }
-      $arrays++
-      $plugins += $Result
-    }
-  if ($skipPure1 -ne $true)
-  {
     try {
       $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip?tagging"
       $Result = $null
@@ -602,7 +434,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
       }
     }
     catch {}
-  } 
   if (($html -eq $True) -and ($flash -eq $false))
   {
       $plugins = $plugins |Where-Object {$_.Type -eq "HTML-5"}
@@ -619,6 +450,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
   {
     throw "The specified plugin version/type was not found on any of the available sources."
   }
+  Write-Debug ($plugins |Out-String) |Format-Table -AutoSize
   if ($global:pfavSpherePluginurl -eq $True)
   {
     return $plugins
@@ -1288,28 +1120,65 @@ Function Get-SSLThumbprint {
   [Alias('FullName')]
   [String]$URL
   )
-
-add-type @"
-      using System.Net;
-      using System.Security.Cryptography.X509Certificates;
-          public class IDontCarePolicy : ICertificatePolicy {
-          public IDontCarePolicy() {}
-          public bool CheckValidationResult(
-              ServicePoint sPoint, X509Certificate cert,
-              WebRequest wRequest, int certProb) {
+  if ($URL -notlike "https://*")
+  { 
+    $URL = "https://" + $URL
+  }
+  $Code = @'
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+namespace CertificateCapture
+{
+  public class Utility
+  {
+      public static Func<HttpRequestMessage,X509Certificate2,X509Chain,SslPolicyErrors,Boolean> ValidationCallback =
+          (message, cert, chain, errors) => {
+              var newCert = new X509Certificate2(cert);
+              var newChain = new X509Chain();
+              newChain.Build(newCert);
+              CapturedCertificates.Add(new CapturedCertificate(){
+                  Certificate =  newCert,
+                  CertificateChain = newChain,
+                  PolicyErrors = errors,
+                  URI = message.RequestUri
+              });
               return true;
-          }
+          };
+      public static List<CapturedCertificate> CapturedCertificates = new List<CapturedCertificate>();
+  }
+  public class CapturedCertificate
+  {
+      public X509Certificate2 Certificate { get; set; }
+      public X509Chain CertificateChain { get; set; }
+      public SslPolicyErrors PolicyErrors { get; set; }
+      public Uri URI { get; set; }
+  }
+}
+'@
+  if ($PSEdition -ne 'Core'){
+      Add-Type -AssemblyName System.Net.Http
+      if (-not ("CertificateCapture" -as [type])) {
+          Add-Type $Code -ReferencedAssemblies System.Net.Http 
       }
-"@
-  [System.Net.ServicePointManager]::CertificatePolicy = New-object IDontCarePolicy
+  } else {
+      if (-not ("CertificateCapture" -as [type])) {
+          Add-Type $Code 
+      }
+  }
 
-  # Need to connect using simple GET operation for this to work
-  Invoke-RestMethod -Uri $URL -Method Get | Out-Null
-
-  $ENDPOINT_REQUEST = [System.Net.Webrequest]::Create("$URL")
-  $SSL_THUMBPRINT = $ENDPOINT_REQUEST.ServicePoint.Certificate.GetCertHashString()
-
-  return $SSL_THUMBPRINT -replace '(..(?!$))','$1:'
+  $Certs = [CertificateCapture.Utility]::CapturedCertificates
+  $Handler = [System.Net.Http.HttpClientHandler]::new()
+  $Handler.ServerCertificateCustomValidationCallback = [CertificateCapture.Utility]::ValidationCallback
+  $Client = [System.Net.Http.HttpClient]::new($Handler)
+  $Client.GetAsync($Url).Result |Out-Null
+  $sha1 = [Security.Cryptography.SHA1]::Create()
+  $certBytes = $Certs[-1].Certificate.GetRawCertData()
+  $hash = $sha1.ComputeHash($certBytes)
+  $thumbprint = [BitConverter]::ToString($hash).Replace('-',':')
+  return $thumbprint
 }
 function Get-PfaCollectorvCenter {
   [CmdletBinding()]
