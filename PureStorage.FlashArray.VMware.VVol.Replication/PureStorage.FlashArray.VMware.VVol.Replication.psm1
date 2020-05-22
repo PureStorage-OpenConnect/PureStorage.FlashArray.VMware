@@ -510,9 +510,9 @@ function Get-PfavVolStorageArray {
 function New-PfavVolStoragePolicy {
   <#
   .SYNOPSIS
-    Creates a new FlashArray Storage Policy
+    Creates a new FlashArray vVol Storage Policy
   .DESCRIPTION
-    Creates a new FlashArray Storage Policy with specified capabilities
+    Creates a new FlashArray vVol Storage Policy with specified capabilities
   .INPUTS
     Capabilities
   .OUTPUTS
@@ -520,12 +520,24 @@ function New-PfavVolStoragePolicy {
   .NOTES
     Version:        1.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  05/17/2020
+    Creation Date:  05/22/2020
     Purpose/Change: Function creation
   .EXAMPLE
-    PS C:\ Get-PfavVolStoragePolicy 
+    PS C:\ New-PfavVolStoragePolicy -policyName
 
-    Returns all Pure Storage FlashArray-based storage policies
+    Creates a new vVol policy with the specified name and default description. The only capability is ensuring it is a FlashArray policy.
+  .EXAMPLE
+    PS C:\ $policyConfig = New-PfavVolStoragePolicy -generateDefaultPolicyConfig
+
+    Generates a new FlashArray vVol policy configuration object. You can then populate the properties.
+  .EXAMPLE
+    PS C:\ New-PfavVolStoragePolicy -policyConfig $policyConfig
+
+    Passes in a FlashArray vVol storage policy configuration object (FlashArrayvVolPolicyConfig) and creates a new vVol storage policy with specified capabilities
+  .EXAMPLE
+    PS C:\ New-PfavVolStoragePolicy -policyName pure-vvolRep -policyDescription "Replication policy for FlashArray vVol VMs" -replicationEnabled $true -replicationInterval (New-TimeSpan -Hours 1) -replicationRetentionShort (New-TimeSpan -Hours 24) -replicationConcurrency 2 -consistencyGroupName purePG
+
+    Creates a replication type vVol storage policy. Ensures VMs are replicated once an hour, and each point in time is kept for 1 day. It also ensures that the VM is replicated to at least 2 target arrays in a consistency group called purePG.
 
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
@@ -536,115 +548,199 @@ function New-PfavVolStoragePolicy {
     ************************************************************************
     #>
 
-  [CmdletBinding()]
+  [CmdletBinding(DefaultParameterSetName='Manual')]
   Param(
         [Parameter(Position=0,ParameterSetName='NewConfig',mandatory=$true)]
-        [Switch]$newConfig,
+        [Switch]$generateDefaultPolicyConfig,
 
         [Parameter(Position=1,ParameterSetName='Config',mandatory=$true,ValueFromPipeline=$True)]
-        [FlashArrayvVolPolicyConfig]$config,
+        [FlashArrayvVolPolicyConfig]$policyConfig,
 
-        [Parameter(Position=2,ParameterSetName='Manual')]
-        [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays,
-
-        [Parameter(Position=3,ParameterSetName='Manual')]
-        [Nullable[boolean]]$replicationEnabled,
-
-        [Parameter(Position=4,ParameterSetName='Manual')]
-        [System.TimeSpan]$replicationInterval,
-
-        [Parameter(Position=5,ParameterSetName='Manual')]
-        [System.TimeSpan]$replicationRetentionShort,
+        [Parameter(Position=6,mandatory=$true,ParameterSetName='Manual')]
+        [String]$policyName,
 
         [Parameter(Position=6,ParameterSetName='Manual')]
+        [String]$policyDescription,
+
+        [Parameter(Position=2,ParameterSetName='Manual')]
+        [Nullable[boolean]]$replicationEnabled,
+
+        [Parameter(Position=3,ParameterSetName='Manual')]
+        [System.TimeSpan]$replicationInterval = 0,
+
+        [Parameter(Position=4,ParameterSetName='Manual')]
+        [System.TimeSpan]$replicationRetentionShort = 0,
+
+        [Parameter(Position=5,ParameterSetName='Manual')]
         [int]$replicationConcurrency,
 
-        [Parameter(Position=7,ParameterSetName='Manual')]
+        [Parameter(Position=6,ParameterSetName='Manual')]
         [String]$consistencyGroupName,
 
-        [Parameter(Position=8,ParameterSetName='Manual')]
-        [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays,
-
-        [Parameter(Position=9,ParameterSetName='Manual')]
+        [Parameter(Position=7,ParameterSetName='Manual')]
         [Nullable[boolean]]$localSnapshotEnabled,
 
+        [Parameter(Position=8,ParameterSetName='Manual')]
+        [System.TimeSpan]$localSnapshotInterval = 0,
+
+        [Parameter(Position=9,ParameterSetName='Manual')]
+        [System.TimeSpan]$localSnapshotRetentionShort = 0,
+
         [Parameter(Position=10,ParameterSetName='Manual')]
-        [System.TimeSpan]$localSnapshotInterval,
-
-        [Parameter(Position=11,ParameterSetName='Manual')]
-        [System.TimeSpan]$localSnapshotRetentionShort,
-
-        [Parameter(Position=12,ParameterSetName='Manual')]
-        [Parameter(Position=12,ParameterSetName='Config')]
+        [Parameter(Position=10,ParameterSetName='Config')]
         [VMware.VimAutomation.ViCore.Types.V1.VIServer]$server
+        
+         <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+
+        [Parameter(Position=8,ParameterSetName='Manual')]
+        [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays, #>
+
+        
+         <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+
+        [Parameter(Position=2,ParameterSetName='Manual')]
+        [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays, #>
   )
-  if ($newConfig -eq $true)
+  if ($null -ne $server)
   {
-    return ([FlashArrayvVolPolicyConfig]::new($sourceFlashArrays, $replicationEnabled, $replicationInterval, $replicationRetentionShort, $replicationConcurrency, $consistencyGroupName, $targetFlashArrays, $localSnapshotEnabled , $localSnapshotInterval, $localSnapshotRetentionShort))
+    $checkExisting = Get-SpbmStoragePolicy -Name $policyName -Server $server -ErrorAction SilentlyContinue
+    if ($null -ne $checkExisting)
+    {
+      throw "A storage policy with the name of $($policyName) already exists on vCenter $($server.Name). Please choose a unique name."
+    }
   }
-  if ($null -eq $config)
+  else {
+    $vCenterExists = @()
+    foreach ($vCenter in $global:DefaultVIServers)
+    {
+      $checkExisting = $null
+      $checkExisting = Get-SpbmStoragePolicy -Name $policyName -Server $vCenter -ErrorAction SilentlyContinue
+      if ($null -ne $checkExisting)
+      {
+        $vCenterExists += $vCenter.name
+      }
+    }
+    if ($vCenterExists.count -gt 0)
+    {
+      throw "A storage policy with the name of $($policyName) already exists on the following vCenter(s):`n `n$($vCenterExists -join ",")`n `n Please choose a unique name."
+    }
+  }
+  if ($generateDefaultPolicyConfig -eq $true)
   {
-    config = ([FlashArrayvVolPolicyConfig]::new($sourceFlashArrays, $replicationEnabled, $replicationInterval, $replicationRetentionShort, $replicationConcurrency, $consistencyGroupName, $targetFlashArrays, $localSnapshotEnabled , $localSnapshotInterval, $localSnapshotRetentionShort))
+    return ([FlashArrayvVolPolicyConfig]::new($policyName, $policyDescription,<#$sourceFlashArrays,#> $replicationEnabled, $replicationInterval, $replicationRetentionShort, $replicationConcurrency, $consistencyGroupName, <#$targetFlashArrays,#> $localSnapshotEnabled , $localSnapshotInterval, $localSnapshotRetentionShort))
+  }
+  if ($null -eq $policyConfig)
+  {
+    $policyConfig = ([FlashArrayvVolPolicyConfig]::new($policyName, $policyDescription,<#$sourceFlashArrays,#>  $replicationEnabled, $replicationInterval, $replicationRetentionShort, $replicationConcurrency, $consistencyGroupName, <#$targetFlashArrays,#> $localSnapshotEnabled , $localSnapshotInterval, $localSnapshotRetentionShort))
   }
   $rules = @()
+ <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+ $rules += New-SpbmRule `
+               -Capability (Get-SpbmCapability -Name com.purestorage.storage.policy.FlashArrayGroup |Select-Object -Unique) `
+               -Value $sourceFlashArrays.Name#>
   $rules += New-SpbmRule `
-               -Capability (Get-SpbmCapability -Name com.purestorage.storage.policy.FlashArrayGroup) `
-               -Value $sourceFlashArrays.Name
-  $rules += New-SpbmRule `
-              -Capability (Get-SpbmCapability -Name com.purestorage.storage.policy.PureFlashArray) `
+              -Capability (Get-SpbmCapability -Name com.purestorage.storage.policy.PureFlashArray |Select-Object -Unique) `
               -Value $true
-  $rules += New-SpbmRule `
-              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotPolicyCapable) `
-              -Value $localSnapshotEnabled
-  $rules += New-SpbmRule `
-              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotInterval) `
-              -Value $localSnapshotInterval
-  $rules += New-SpbmRule `
-              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotRetention) `
-              -Value $localSnapshotRetentionShort 
-  $rules += New-SpbmRule `
-              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.ReplicationTarget) `
+  if ($null -ne $policyConfig.localSnapshotEnabled)
+  {
+    $rules += New-SpbmRule `
+                -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotPolicyCapable |Select-Object -Unique) `
+                -Value $policyConfig.localSnapshotEnabled
+  }
+  if ($policyConfig.localSnapshotInterval -ne 0)
+  {
+    $rules += New-SpbmRule `
+                -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotInterval |Select-Object -Unique) `
+                -Value $policyConfig.localSnapshotInterval
+  }
+  if ($policyConfig.localSnapshotRetentionShort -ne 0)
+  {
+    $rules += New-SpbmRule `
+              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.LocalSnapshotRetention |Select-Object -Unique) `
+              -Value $policyConfig.localSnapshotRetentionShort 
+  }
+  <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+              $rules += New-SpbmRule `
+              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.ReplicationTarget |Select-Object -Unique) `
               -Value $targetFlashArrays.Name
+              #>
+  if ($null -ne $policyConfig.replicationEnabled)
+  {
+    $rules += New-SpbmRule `
+              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationCapable |Select-Object -Unique) `
+              -Value $policyConfig.replicationEnabled
+  }
+  if ($policyConfig.replicationInterval -ne 0)
+  {
   $rules += New-SpbmRule `
-             -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationCapable) `
-             -Value $replicationEnabled
-  $rules += New-SpbmRule `
-             -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationInterval) `
-             -Value $replicationInterval
-  $rules += New-SpbmRule `
-             -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationRetention) `
-             -Value $replicationRetentionShort 
-  $rules += New-SpbmRule `
-             -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.ReplicationConsistencyGroup) `
-             -Value $consistencyGroupName
+            -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationInterval |Select-Object -Unique) `
+            -Value $policyConfig.replicationInterval
+  }
+  if ($policyConfig.replicationRetentionShort -ne 0)
+  { 
+            $rules += New-SpbmRule `
+            -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.RemoteReplicationRetention |Select-Object -Unique) `
+            -Value $policyConfig.replicationRetentionShort 
+  }
+  if (!([string]::IsNullOrWhiteSpace($policyConfig.consistencyGroupName)))
+  {
+    $rules += New-SpbmRule `
+              -Capability (Get-SpbmCapability -Name com.purestorage.storage.replication.ReplicationConsistencyGroup |Select-Object -Unique) `
+              -Value $policyConfig.consistencyGroupName
+  }
+  #create policy
+  $ruleSet = New-SpbmRuleSet -AllOfRules $rules 
+  if ([string]::IsNullOrWhiteSpace($policyConfig.policyDescription))
+  {
+    $policyConfig.policyDescription = "Pure Storage vVol Storage Policy created from PowerCLI"
+  }
+  if ($null -eq $server)
+  {
+    $policy = @()
+    foreach ($vCenter in $global:DefaultVIServers)
+    {
+      $policy += New-SpbmStoragePolicy -Name $policyConfig.policyName -Description $policyConfig.policyDescription -AnyOfRuleSets $ruleSet -Server $vCenter
+    }
+  }
+  else {
+    $policy = New-SpbmStoragePolicy -Name $policyConfig.policyName -Description $policyConfig.policyDescription -AnyOfRuleSets $ruleSet -Server $server
+    }
+    return $policy
 }
 
 #Custom Classes
 Class FlashArrayvVolPolicyConfig{
   static [String] $version = "1.1.0"
   static [String] $vendor = "Pure Storage"
-  static [String] $name = "vVol Storage Policy Configuration"
+  static [String] $objectName = "vVol Storage Policy Configuration"
   static [String] $model = "FlashArray"
   static [System.Boolean]$flasharray = $true
-  [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays = $null
+  [String]$policyName = ""
+  [String]$policyDescription = ""
+  <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+  [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays = $null #>
   [Nullable[boolean]]$replicationEnabled = $null
-  [System.TimeSpan]$replicationInterval = $null
-  [System.TimeSpan]$replicationRetentionShort = $null
+  [System.TimeSpan]$replicationInterval = 0
+  [System.TimeSpan]$replicationRetentionShort = 0
   [int]$replicationConcurrency = $null
+  [ValidatePattern('(?# MUST BE 3+ digits, alphanumeric, also dashes or underscores can be in the middle)^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$|^$')]
   [String]$consistencyGroupName = ""
-  [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays = $null
+  <# Seems to be a bug in PowerCLI where array objects dont work in policies. Looking into this with VMware. Will hide for now (PowerCLI 12.0). 
+  [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays = $null #>
   [Nullable[boolean]]$localSnapshotEnabled = $null
-  [System.TimeSpan]$localSnapshotInterval = $null
-  [System.TimeSpan]$localSnapshotRetentionShort = $null
-  FlashArrayvVolPolicyConfig ([VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays, [Nullable[boolean]]$replicationEnabled, [System.TimeSpan]$replicationInterval, [System.TimeSpan]$replicationRetentionShort, [int]$replicationConcurrency, [String]$consistencyGroupName, [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays, [Nullable[boolean]]$localSnapshotEnabled , [System.TimeSpan]$localSnapshotInterval, [System.TimeSpan]$localSnapshotRetentionShort)
+  [System.TimeSpan]$localSnapshotInterval = 0
+  [System.TimeSpan]$localSnapshotRetentionShort = 0
+  FlashArrayvVolPolicyConfig ([String]$policyName, [String]$policyDescription, <#[VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$sourceFlashArrays,#> [Nullable[boolean]]$replicationEnabled, [System.TimeSpan]$replicationInterval, [System.TimeSpan]$replicationRetentionShort, [int]$replicationConcurrency, [String]$consistencyGroupName, <#[VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray[]]$targetFlashArrays,#> [Nullable[boolean]]$localSnapshotEnabled , [System.TimeSpan]$localSnapshotInterval, [System.TimeSpan]$localSnapshotRetentionShort)
   {
-    $this.sourceFlashArrays = $sourceFlashArrays
+    #$this.sourceFlashArrays = $sourceFlashArrays
+    $this.policyName = $policyName
+    $this.policyDescription = $policyDescription
     $this.replicationEnabled = $replicationEnabled
     $this.replicationInterval = $replicationInterval
     $this.replicationRetentionShort = $replicationRetentionShort
     $this.replicationConcurrency = $replicationConcurrency
     $this.consistencyGroupName = $consistencyGroupName
-    $this.targetFlashArrays = $targetFlashArrays
+    #$this.targetFlashArrays = $targetFlashArrays
     $this.localSnapshotEnabled = $localSnapshotEnabled
     $this.localSnapshotInterval = $localSnapshotInterval
     $this.localSnapshotRetentionShort = $localSnapshotRetentionShort
