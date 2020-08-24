@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Configuration.psd1
-	 Version:		1.5.0.1
+	 Version:		2.0.0.0
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareConfigurationPowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Configuration.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.5.0.1'
+	ModuleVersion = '2.0.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '8f427302-6faf-42de-9f58-09276c3343cb'
@@ -47,7 +47,7 @@
 	Description = 'Pure Storage FlashArray VMware PowerShell configuration management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '5.0'
+	PowerShellVersion = '5.1'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -82,16 +82,16 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'New-PfaConnection','Get-PfaDatastore','Get-PfaConnectionOfDatastore','New-PfaRestSession','Remove-PfaRestSession','New-PfaHostFromVmHost','Get-PfaHostFromVmHost','Get-PfaHostGroupfromVcCluster','New-PfaHostGroupfromVcCluster','Set-VmHostPfaiSCSI','Set-ClusterPfaiSCSI','get-PfaConnectionFromArrayId','Initialize-PfaVcfWorkloadDomain'
+	FunctionsToExport = 'New-PfaRestOperation','New-PfaConnection','Get-PfaDatastore','Get-PfaConnectionOfDatastore','New-PfaRestSession','Remove-PfaRestSession','New-PfaHostFromVmHost','Get-PfaHostFromVmHost','Get-PfaHostGroupfromVcCluster','New-PfaHostGroupfromVcCluster','Set-VmHostPfaiSCSI','Set-ClusterPfaiSCSI','get-PfaConnectionFromArrayId','Initialize-PfaVcfWorkloadDomain'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
 	
 	# Variables to export from this module
-	VariablesToExport = 'new-pureflasharrayRestSession','remove-pureflasharrayRestSession','new-faHostFromVmHost','get-faHostFromVmHost','get-faHostGroupfromVcCluster','new-faHostGroupfromVcCluster','set-vmHostPureFaiSCSI','set-clusterPureFAiSCSI'
+	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = ''
+	AliasesToExport = 'new-pureflasharrayRestSession','remove-pureflasharrayRestSession','new-faHostFromVmHost','get-faHostFromVmHost','get-faHostGroupfromVcCluster','new-faHostGroupfromVcCluster','set-vmHostPureFaiSCSI','set-clusterPureFAiSCSI'
 	
 	# List of all modules packaged with this module
 	ModuleList = @()

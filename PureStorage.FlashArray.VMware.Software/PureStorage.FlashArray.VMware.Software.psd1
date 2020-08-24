@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Software.psd1
-	 Version:		1.5.0.0
+	 Version:		2.0.0.0
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareSoftwarePowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Software.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.5.0.0'
+	ModuleVersion = '2.0.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '1a8ffc6d-02ae-4406-b51e-73c8d543b7ac'
@@ -47,7 +47,7 @@
 	Description = 'Pure Storage FlashArray VMware PowerShell software management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '5.0'
+	PowerShellVersion = '5.1'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''

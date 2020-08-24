@@ -10,10 +10,10 @@ function New-PfaConnection {
   .OUTPUTS
     Returns the FlashArray connection.
   .NOTES
-    Version:        1.1
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  12/08/2019
-    Purpose/Change: Added parameter sets
+    Creation Date:  08/24/2020
+    Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
     PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -87,10 +87,10 @@ function Get-PfaDatastore {
   .OUTPUTS
     Returns the relevant datastores.
   .NOTES
-    Version:        1.1
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  12/08/2019
-    Purpose/Change: Added parameter sets
+    Creation Date:  08/24/2020
+    Purpose/Change: Core support
   .EXAMPLE
     PS C:\ Get-PfaDatastores 
     
@@ -168,7 +168,7 @@ function Get-PfaDatastore {
     $vvolDatastores = $datastores  |where-object {$_.Type -eq "VVOL"} |Where-Object {$_.ExtensionData.Info.VvolDS.StorageArray[0].VendorId -eq "PURE"} 
     if ($null -ne $flasharray)
     {
-      $arrayID = (Get-PfaArrayAttributes -Array $flasharray).id
+      $arrayID = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
       $vvolDatastores = $vvolDatastores |Where-Object {$_.ExtensionData.info.vvolDS.storageArray[0].uuid.substring(16) -eq $arrayID}
     }
   }
@@ -215,10 +215,10 @@ function Get-PfaConnectionOfDatastore {
 .OUTPUTS
   Returns the correct FlashArray connection.
 .NOTES
-  Version:        1.1
+  Version:        2.0
   Author:         Cody Hosterman https://codyhosterman.com
-  Creation Date:  12/08/2019
-  Purpose/Change: Added parameter validation
+  Creation Date:  08/24/2020
+  Purpose/Change: Core support
 .EXAMPLE
     PS C:\ $faCreds = get-credential
     PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -259,6 +259,10 @@ Param(
   {
       $flasharrays = getAllFlashArrays 
   }
+  if ($flasharrays.count -eq 0)
+  {
+      throw "Cannot find any FlashArray connections. Please authenticate your FlashArrays." 
+  }
   if ($datastore.Type -eq 'VMFS')
   {
       $lun = $datastore.ExtensionData.Info.Vmfs.Extent.DiskName |select-object -unique
@@ -267,7 +271,7 @@ Param(
           $volserial = ($lun.ToUpper()).substring(12)
           foreach ($flasharray in $flasharrays)
           { 
-              $pureVolumes = Get-PfaVolumes -Array  $flasharray
+              $pureVolumes = New-PfaRestOperation -resourceType volume -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
               $purevol = $purevolumes | where-object { $_.serial -eq $volserial }
               if ($null -ne $purevol.name)
               {
@@ -285,7 +289,7 @@ Param(
       $datastoreArraySerial = $datastore.ExtensionData.Info.VvolDS.StorageArray[0].uuid.Substring(16)
       foreach ($flasharray in $flasharrays)
       {
-          $arraySerial = (Get-PfaArrayAttributes -array $flasharray).id
+          $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
           if ($arraySerial -eq $datastoreArraySerial)
           {
               $Global:CurrentFlashArray = $flasharray
@@ -307,10 +311,10 @@ function Get-PfaConnectionFromArrayId {
   .OUTPUTS
     FlashArray connection.
   .NOTES
-    Version:        1.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  06/10/2019
-    Purpose/Change: First release
+    Creation Date:  08/24/2020
+    Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
     PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -343,7 +347,7 @@ function Get-PfaConnectionFromArrayId {
   }
   foreach ($flasharray in $flasharrays)
   {
-      $returnedID = (Get-PfaArrayAttributes -Array $flasharray).id
+      $returnedID = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
       if ($returnedID.ToLower() -eq $arrayId.ToLower())
       {
           return $flasharray
@@ -364,8 +368,8 @@ function New-PfaRestSession {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -390,6 +394,7 @@ function New-PfaRestSession {
     {
         $flasharray = checkDefaultFlashArray
     }
+    if ($PSEdition -ne 'Core'){
 add-type @"
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -408,6 +413,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         api_token = $flasharray.ApiToken
     }
     Invoke-RestMethod -Method Post -Uri "https://$($flasharray.Endpoint)/api/$($flasharray.apiversion)/auth/session" -Body $SessionAction -SessionVariable Session -ErrorAction Stop |Out-Null
+  }
+  else {
+    $SessionAction = @{
+      api_token = $flasharray.ApiToken
+  }
+    Invoke-RestMethod -Method Post -Uri "https://$($flasharray.Endpoint)/api/$($flasharray.apiversion)/auth/session" -Body $SessionAction -SessionVariable Session -ErrorAction Sto -SkipCertificateCheck |Out-Null
+  }
     $global:faRestSession = $Session
     return $global:faRestSession
 }
@@ -424,8 +436,8 @@ function Remove-PfaRestSession {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $restSession | Remove-PfaRestSession -flasharray $fa 
       
@@ -444,7 +456,7 @@ function Remove-PfaRestSession {
             [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
             [Microsoft.PowerShell.Commands.WebRequestSession]$faSession,
 
-            [Parameter(Position=1,ValueFromPipeline=$True)]
+            [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
             [PurePowerShell.PureArray]$flasharray
     )
       if ($null -eq $flasharray)
@@ -454,7 +466,26 @@ function Remove-PfaRestSession {
       $purevip = $flasharray.endpoint
       $apiVersion = $flasharray.ApiVersion
       #Delete FA session
-      Invoke-RestMethod -Method Delete -Uri "https://${purevip}/api/${apiVersion}/auth/session"  -WebSession $faSession -ErrorAction Stop |Out-Null
+      if ($PSVersionTable.PSEdition -ne "Core")
+      {
+          add-type @"
+        using System.Net;
+        using System.Security.Cryptography.X509Certificates;
+            public class IDontCarePolicy : ICertificatePolicy {
+            public IDontCarePolicy() {}
+            public bool CheckValidationResult(
+                ServicePoint sPoint, X509Certificate cert,
+                WebRequest wRequest, int certProb) {
+                return true;
+            }
+        }
+"@
+          [System.Net.ServicePointManager]::CertificatePolicy = New-object IDontCarePolicy  
+          Invoke-RestMethod -Method Delete -Uri "https://${purevip}/api/${apiVersion}/auth/session"  -WebSession $faSession -ErrorAction Stop |Out-Null
+      }
+      else {
+        Invoke-RestMethod -Method Delete -Uri "https://${purevip}/api/${apiVersion}/auth/session"  -WebSession $faSession -ErrorAction Stop -SkipCertificateCheck |Out-Null
+      }
 }
 function New-PfaHostFromVmHost {
     <#
@@ -467,10 +498,10 @@ function New-PfaHostFromVmHost {
     .OUTPUTS
       Returns new FlashArray host object.
     .NOTES
-      Version:        3.0
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/08/2019
-      Purpose/Change: Added parameter sets 
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -551,11 +582,19 @@ function New-PfaHostFromVmHost {
                     }
                     try
                     {
-                        $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -IqnList $iqn -ErrorAction stop
-                        $majorVersion = ((Get-PfaArrayAttributes -Array $fa).version[0])
+                        if ($iqn.count -gt 1)
+                        {
+                          $iqnJson = $iqn |ConvertTo-Json
+                        }
+                        else {
+                          $iqnJson = ("[" + ($iqn |ConvertTo-Json) + "]")
+                        }
+                        Write-debug $iqnJson
+                        $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"iqnlist`":$($iqnJson)}" -ErrorAction Stop
+                        $majorVersion = ((New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck).version[0])
                         if ($majorVersion -ge 5)
                         {
-                          Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
+                          New-PfaRestOperation -resourceType host/$($newFaHost.name) -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"personality`":`"esxi`"}" |Out-Null
                         }
                         $vmHosts += $newFaHost
                     }
@@ -574,15 +613,23 @@ function New-PfaHostFromVmHost {
                             $wwns.substring($i,16)
                     }}
                     try
-                    {
-                        $newFaHost = New-PfaHost -Array $fa -Name $esxi.NetworkInfo.HostName -WwnList $wwns -ErrorAction stop
-                        $majorVersion = ((Get-PfaArrayAttributes -Array $fa).version[0])
-                        if ($majorVersion -ge 5)
-                        {
-                          Set-PfaPersonality -Array $fa -Name $newFaHost.name -Personality "esxi" |Out-Null
-                        }
-                        $vmHosts += $newFaHost
-                        $Global:CurrentFlashArray = $fa
+                    {   
+                      if ($wwns.count -gt 1)
+                      {
+                        $wwnsJson = $wwns |ConvertTo-Json
+                      }
+                      else {
+                        $wwnsJson = ("[" + ($wwns |ConvertTo-Json) + "]")
+                      }
+                      Write-debug $wwnsJson
+                      $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"wwnlist`":$($wwnsJson)}" -ErrorAction Stop
+                      $majorVersion = ((New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck).version[0])
+                      if ($majorVersion -ge 5)
+                      {
+                        New-PfaRestOperation -resourceType host/$($newFaHost.name) -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"personality`":`"esxi`"}" |Out-Null
+                      }
+                      $vmHosts += $newFaHost
+                      $Global:CurrentFlashArray = $fa
                     }
                     catch
                     {
@@ -625,8 +672,8 @@ function Get-PfaHostFromVmHost {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -669,7 +716,7 @@ function Get-PfaHostFromVmHost {
     {
             $wwns.substring($i,16)
     }}
-    $fahosts = Get-PFAHosts -array $flasharray -ErrorAction Stop
+    $fahosts = New-PfaRestOperation -resourceType host -restOperationType GET -flasharray $flasharray -SkipCertificateCheck -ErrorAction Stop
     if ($null -ne $iscsiadapter)
     {
         $iqn = $iscsiadapter.ExtensionData.IScsiName
@@ -729,8 +776,8 @@ function Get-PfaHostGroupfromVcCluster {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -781,7 +828,7 @@ function Get-PfaHostGroupfromVcCluster {
                 }
                 else {
                     $faHostGroupNames += $faHost.hgroup
-                    $faHostGroup = Get-PfaHostGroup -Array $flasharray -Name $faHost.hgroup
+                    $faHostGroup = New-PfaRestOperation -resourceType "hgroup/$($faHost.hgroup)" -restOperationType GET -flasharray $flasharray -SkipCertificateCheck  -ErrorAction stop
                     $faHostGroups += $faHostGroup
                 }
             }
@@ -814,8 +861,8 @@ function New-PfaHostGroupfromVcCluster {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -951,20 +998,25 @@ function New-PfaHostGroupfromVcCluster {
                     $clustername = $clustername -replace "[_]", ""
                     $clustername = $clustername -replace " ", ""
                 }
-                $hg = Get-PfaHostGroup -Array $fa -Name $clustername -ErrorAction SilentlyContinue
+                $hg = $null
+                $hg = New-PfaRestOperation -resourceType "hgroup/$($clustername)" -restOperationType GET -flasharray $fa -SkipCertificateCheck -ErrorAction SilentlyContinue
                 if ($null -ne $hg)
                 {
                     if ($hg.hosts.count -ne 0)
                     {
                         #if host group name is already in use and has only unexpected hosts i will create a new one with a random number at the end
                         $nameRandom = Get-random -Minimum 1000 -Maximum 9999
-                        $hostGroup = New-PfaHostGroup -Array $fa -Name "$($clustername)-$($nameRandom)" -ErrorAction stop
                         $clustername = "$($clustername)-$($nameRandom)"
+                        $hostGroup = New-PfaRestOperation -resourceType "hgroup/$($clustername)" -restOperationType POST -flasharray $fa -SkipCertificateCheck  -ErrorAction stop
+                        
+                    }
+                    else {
+                      $hostGroup = $hg
                     }
                 }
                 else {
-                    #if there is no host group, it will be created
-                    $hostGroup = New-PfaHostGroup -Array $fa -Name $clustername -ErrorAction stop
+                      #if there is no host group, it will be created
+                      $hostGroup = New-PfaRestOperation -resourceType "hgroup/$($clustername)" -restOperationType POST -flasharray $fa -SkipCertificateCheck  -ErrorAction stop
                 }
             }
             $faHostNames = @()
@@ -976,9 +1028,20 @@ function New-PfaHostGroupfromVcCluster {
                 }
             }
             #any hosts that are not already in the host group will be added
-            Add-PfaHosts -Array $fa -Name $clustername -HostsToAdd $faHostNames -ErrorAction Stop |Out-Null
+            if ($faHostNames.count -gt 0)
+            {
+              if ($faHostNames.count -gt 1)
+              {
+                $hostsJson = $faHostNames |ConvertTo-Json
+              }
+              else {
+                $hostsJson = ("[" + ($faHostNames |ConvertTo-Json) + "]")
+              }
+              Write-debug $hostsJson
+              New-PfaRestOperation -resourceType "hgroup/$($clustername)" -restOperationType PUT -flasharray $fa -jsonBody "{`"addhostlist`":$($hostsJson)}" -SkipCertificateCheck  -ErrorAction stop |Out-Null
+            }
             $Global:CurrentFlashArray = $fa
-            $fahostGroup = Get-PfaHostGroup -Array $fa -Name $clustername
+            $fahostGroup = New-PfaRestOperation -resourceType "hgroup/$($clustername)" -restOperationType GET -flasharray $fa -SkipCertificateCheck  -ErrorAction stop
             $pfaHostGroups += $fahostGroup
         }
     }
@@ -1000,8 +1063,8 @@ function Set-VmHostPfaiSCSI{
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -1057,7 +1120,7 @@ function Set-VmHostPfaiSCSI{
                 return
             }
             $ESXitargets = @()
-            $faiSCSItargets = Get-PfaNetworkInterfaces -Array $fa |Where-Object {$_.services -eq "iscsi"} |Where-Object {$_.enabled -eq $true} | Where-Object {$null -ne $_.address}
+            $faiSCSItargets = New-PfaRestOperation -resourceType network -restOperationType GET -flasharray $fa -SkipCertificateCheck |Where-Object {$_.services -eq "iscsi"} |Where-Object {$_.enabled -eq $true} | Where-Object {$null -ne $_.address}
             if ($null -eq $faiSCSItargets)
             {
                 throw "The target FlashArray does not currently have any iSCSI targets configured."
@@ -1121,8 +1184,8 @@ function Set-ClusterPfaiSCSI {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/24/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -1208,10 +1271,10 @@ function Initialize-PfaVcfWorkloadDomain {
   .OUTPUTS
     Returns host group.
   .NOTES
-    Version:        1.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  11/12/2019
-    Purpose/Change: New cmdlet
+    Creation Date:  08/24/2020
+    Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
     PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -ignoreCertificateError -defaultArray
@@ -1387,7 +1450,128 @@ function Initialize-PfaVcfWorkloadDomain {
   cleanup-pfaVcf
   return $hostGroup
 }
+function New-PfaRestOperation {
+  <#
+  .SYNOPSIS
+    Allows you to run a FlashArray REST operation that has not yet been built into this module.
+  .DESCRIPTION
+    Runs a REST operation to Pure1
+  .INPUTS
+    A filter/query, an resource, a REST body, and optionally an access token.
+  .OUTPUTS
+    Returns FA REST response.
+  .EXAMPLE
+   
+  .NOTES
+    Version:        2.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  08/24/2020
+    Purpose/Change: Core support
 
+  *******Disclaimer:******************************************************
+  This scripts are offered "as is" with no warranty.  While this 
+  scripts is tested and working in my environment, it is recommended that you test 
+  this script in a test lab before using in a production environment. Everyone can 
+  use the scripts/commands provided here without any written permission but I
+  will not be liable for any damage or loss to the system.
+  ************************************************************************
+  #>
+
+  [CmdletBinding()]
+  Param(
+      [Parameter(Position=0,mandatory=$True)]
+      [string]$resourceType,
+
+      [Parameter(Position=1)]
+      [string]$queryFilter,
+
+      [Parameter(Position=2)]
+      [string]$jsonBody,
+
+      [Parameter(Position=3,mandatory=$True)]
+      [ValidateSet('POST','GET','DELETE','PUT','PATCH')]
+      [string]$restOperationType,
+
+      [Parameter(ParameterSetName='REST',Position=4)]
+      [Microsoft.PowerShell.Commands.WebRequestSession]$pfaSession,
+
+      [Parameter(ParameterSetName='FlashArray',Position=5,ValueFromPipeline=$True)]
+      [PurePowerShell.PureArray]$flasharray,
+
+      [Parameter(ParameterSetName='REST',Position=6)]
+      [string]$url,
+
+      [Parameter(Position=7)]
+      [switch]$SkipCertificateCheck,
+
+      [Parameter(ParameterSetName='REST',Position=8)]
+      [string]$pfaRestVersion
+  )
+    if ($null -ne $flasharray)
+    {
+      $pfaSession = new-PfaRestSession -flasharray $flasharray
+      $url = $flasharray.EndPoint
+      $pfaRestVersion = $flasharray.ApiVersion
+    }
+    else 
+    {
+      if ([string]::IsNullOrWhiteSpace($pfaRestVersion))
+      {
+        if ($PSVersionTable.PSEdition -ne "Core")
+        {
+          if ($SkipCertificateCheck -eq $True)
+          {
+            add-type @"
+          using System.Net;
+          using System.Security.Cryptography.X509Certificates;
+              public class IDontCarePolicy : ICertificatePolicy {
+              public IDontCarePolicy() {}
+              public bool CheckValidationResult(
+                  ServicePoint sPoint, X509Certificate cert,
+                  WebRequest wRequest, int certProb) {
+                  return true;
+              }
+          }
+"@
+            [System.Net.ServicePointManager]::CertificatePolicy = New-object IDontCarePolicy  
+            $versions = ((Invoke-WebRequest -Uri https://$($url)/api/api_version).Content |ConvertFrom-Json).version |where-object {$_ -notlike "2.*"}
+          }
+        }
+        else {
+          $versions = ((Invoke-WebRequest -Uri https://$($url)/api/api_version -SkipCertificateCheck).Content |ConvertFrom-Json).version |where-object {$_ -notlike "2.*"}
+        }
+        $pfaRestVersion = $versions[$versions.count-1]
+      }
+    }
+    $apiendpoint = "https://$($url)/api/$($pfaRestVersion)/" + $resourceType + $queryFilter
+    Write-Debug $apiendpoint
+    if ($PSVersionTable.PSEdition -eq "Core")
+    {
+      if ($jsonBody -ne "")
+      {
+          $pfaResponse = Invoke-RestMethod -Method $restOperationType -Uri $apiendpoint -ContentType "application/json" -WebSession $pfaSession -SkipCertificateCheck:$SkipCertificateCheck  -Body $jsonBody -ErrorAction Stop
+      }
+      else 
+      {
+          $pfaResponse = Invoke-RestMethod -Method $restOperationType -Uri $apiendpoint -ContentType "application/json" -WebSession $pfaSession -SkipCertificateCheck:$SkipCertificateCheck  -ErrorAction Stop
+      }
+    }
+    else {
+        if ($jsonBody -ne "")
+        {
+            $pfaResponse = Invoke-RestMethod -Method $restOperationType -Uri $apiendpoint -ContentType "application/json" -WebSession $pfaSession -Body $jsonBody -ErrorAction Stop
+        }
+        else 
+        {
+            $pfaResponse = Invoke-RestMethod -Method $restOperationType -Uri $apiendpoint -ContentType "application/json" -WebSession $pfaSession -ErrorAction Stop
+        }
+    }
+    if ($null -ne $flasharray)
+    {
+      Remove-PfaRestSession -faSession $pfaSession -flasharray $flasharray|Out-Null
+    }
+    return $pfaResponse
+}
 
 #aliases to not break compatibility with original cmdlet names
 New-Alias -Name New-pureflasharrayRestSession -Value New-PfaRestSession
@@ -1460,39 +1644,5 @@ function getAllFlashArrays {
   {
       throw "Please either pass in one or more FlashArray connections or create connections via the New-PfaConnection cmdlet."
   }
-}
-Function Get-SSLThumbprint {
-  param(
-  [Parameter(
-      Position=0,
-      Mandatory=$true,
-      ValueFromPipeline=$true,
-      ValueFromPipelineByPropertyName=$true)
-  ]
-  [Alias('FullName')]
-  [String]$URL
-  )
-
-add-type @"
-      using System.Net;
-      using System.Security.Cryptography.X509Certificates;
-          public class IDontCarePolicy : ICertificatePolicy {
-          public IDontCarePolicy() {}
-          public bool CheckValidationResult(
-              ServicePoint sPoint, X509Certificate cert,
-              WebRequest wRequest, int certProb) {
-              return true;
-          }
-      }
-"@
-  [System.Net.ServicePointManager]::CertificatePolicy = New-object IDontCarePolicy
-
-  # Need to connect using simple GET operation for this to work
-  Invoke-RestMethod -Uri $URL -Method Get | Out-Null
-
-  $ENDPOINT_REQUEST = [System.Net.Webrequest]::Create("$URL")
-  $SSL_THUMBPRINT = $ENDPOINT_REQUEST.ServicePoint.Certificate.GetCertHashString()
-
-  return $SSL_THUMBPRINT -replace '(..(?!$))','$1:'
 }
 

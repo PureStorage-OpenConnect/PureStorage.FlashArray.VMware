@@ -1198,6 +1198,10 @@ function Get-PfaCollectorvCenter {
   $foundvCenters = @()
   for ($i =13;$i -lt $propertyCount; $i++)
   {
+    if (($null -eq $queryResponse.("P$($i)")) -or ($null -eq $queryResponse.("P$($i + 1)")))
+    {
+      break
+    }
     $foundvCenter = New-Object vCenterStatus
     $foundvCenter.Name = $queryResponse.("P$($i)")
     $i++

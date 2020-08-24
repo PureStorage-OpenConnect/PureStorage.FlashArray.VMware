@@ -83,7 +83,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Get-PfavVolReplicationGroup','Get-PfavVolReplicationGroupPartner','Get-PfavVolFaultDomain','Get-PfavVolStoragePolicy','New-PfavVolStoragePolicy','Get-PfavVolStorageArray'
+	FunctionsToExport = 'Get-PfavVolReplicationGroup','Get-PfavVolReplicationGroupPartner','Get-PfavVolFaultDomain','Get-PfavVolStoragePolicy','New-PfavVolStoragePolicy','Set-PfavVolStoragePolicy','Get-PfavVolStorageArray'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
