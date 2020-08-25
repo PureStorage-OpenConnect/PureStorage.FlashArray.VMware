@@ -68,7 +68,7 @@
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="1.1.0.2"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="2.0.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="2.0.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.vVol";"ModuleVersion"="1.4.0.2"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Pure1";"ModuleVersion"="1.0.0.1"}

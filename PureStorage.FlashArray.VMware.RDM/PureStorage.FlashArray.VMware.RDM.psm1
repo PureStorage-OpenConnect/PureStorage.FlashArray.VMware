@@ -10,10 +10,10 @@ function New-PfaRDM {
     .OUTPUTS
       FlashArray volume name
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/09/2019
-      Purpose/Change: Added examples parameter sets/validation
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -32,7 +32,7 @@ function New-PfaRDM {
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
       PS C:\ $vm = get-vm myVM
-      PS C:\ New-PfaRDM -vm $vm -sizeInTb 1 -flasharray $fa -snapshot vol1.mySnapshot
+      PS C:\ New-PfaRDM -vm $vm -flasharray $fa -snapshot vol1.mySnapshot
       
       Creates a RDM from the volume snapshot vol1.mySnapshot and presents it to a VM on the specified FlashArray.
 
@@ -82,6 +82,7 @@ function New-PfaRDM {
             [Parameter(ParameterSetName='Snapshot',Position=7)]
             [string]$snapshotName
     )
+    $warningpreference = "SilentlyContinue"
     if ($null -eq $flasharray)
     {
       $flasharray = checkDefaultFlashArray
@@ -131,12 +132,12 @@ function New-PfaRDM {
     $hostGroup = $cluster | get-pfaHostGroupfromVcCluster -flasharray $flasharray -ErrorAction Stop
     if ($snapshotName -ne "")
     {
-        $newVol = New-PfaVolume -Array $flasharray -VolumeName $volName -Source $snapshotName -ErrorAction Stop
+        $newVol = New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"source`":`"$($snapshotName)`"}" -SkipCertificateCheck -ErrorAction Stop
     }
     else {
-        $newVol = New-PfaVolume -Array $flasharray -Size $volSize -VolumeName $volName -ErrorAction Stop
+        $newVol = New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"size`":`"$($volSize)`"}" -SkipCertificateCheck -ErrorAction Stop
     }
-    New-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newVol.name -HostGroupName $hostGroup.name |Out-Null
+    New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($newVol.name)" -restOperationType POST -flasharray $flasharray -SkipCertificateCheck -ErrorAction Stop |Out-Null
     $esxiHosts = $cluster| Get-VMHost 
     foreach ($esxiHost in $esxiHosts)
     {
@@ -198,14 +199,14 @@ function New-PfaRDM {
         $controller = $scsiController
     }
     try {
-        $newRDM = $vm | new-harddisk -DeviceName "/vmfs/devices/disks/$($newNAA)" -DiskType RawPhysical -Controller $controller -Datastore $datastore -ErrorAction stop
+        $vm | new-harddisk -DeviceName "/vmfs/devices/disks/$($newNAA)" -DiskType RawPhysical -Controller $controller -Datastore $datastore -ErrorAction stop |Out-Null
         $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
         return $rdmDisk
     }
     catch {
-        Remove-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newvol.name -HostGroupName $hostGroup.name|Out-Null
-        Remove-PfaVolumeOrSnapshot -Array $flasharray -Name $newvol.name |Out-Null
-        Remove-PfaVolumeOrSnapshot -Array $flasharray -Eradicate:$true -Name $newvol.name |Out-Null
+        New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($newvol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck |Out-Null
+        New-PfaRestOperation -resourceType "volume/$($newvol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck |Out-Null
+        New-PfaRestOperation -resourceType "volume/$($newvol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck -queryFilter "?eradicate=true" |Out-Null
         throw $PSItem
     }       
 }
@@ -220,10 +221,10 @@ function Get-PfaRDMVol {
     .OUTPUTS
       Returns FlashArray volume or error if not found.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/09/2019
-      Purpose/Change: Added examples, validation to parameters.
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -276,7 +277,7 @@ function Get-PfaRDMVol {
           $volSerial = ($lun.ToUpper()).substring(12)
           foreach ($fa in $flasharray)
           {
-              $purevol =  Get-PfaVolumes -Array  $fa -Filter "serial='$volSerial'"
+              $purevol = New-PfaRestOperation -resourceType volume -restOperationType GET -flasharray $fa -SkipCertificateCheck -queryFilter "?filter=serial=`'$($volSerial)`'"
               if ($null -ne $purevol)
               {
                 $Global:CurrentFlashArray = $fa
@@ -300,10 +301,10 @@ function Get-PfaConnectionFromRDM {
   .OUTPUTS
     Returns FlashArray connection or error if not found.
   .NOTES
-     Version:        2.1
+     Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  12/09/2019
-    Purpose/Change: Added examples, validation to parameters.
+    Creation Date:  08/25/2020
+    Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
     PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -346,26 +347,18 @@ function Get-PfaConnectionFromRDM {
           [Parameter(Position=1,ValueFromPipeline=$True)]
           [PurePowerShell.PureArray[]]$flasharray
   )
-    $lun = ("naa." + $rdm.ExtensionData.Backing.LunUuid.substring(10).substring(0,32))
     if ($null -eq $flasharray)
     {
       $flasharray = getAllFlashArrays 
     }
-    if ($lun -like 'naa.624a9370*')
+    foreach ($fa in $flasharray)
     {
-        $volSerial = ($lun.ToUpper()).substring(12)
-        foreach ($fa in $flasharray)
+        $purevol = Get-PfaRDMVol -rdm $rdm -flasharray $fa
+        if ($null -ne $purevol)
         {
-            $purevol =  Get-PfaVolumes -Array  $fa -Filter "serial='$volSerial'"
-            if ($null -ne $purevol)
-            {
-              $Global:CurrentFlashArray = $fa
-              return $fa
-            }
+          $Global:CurrentFlashArray = $fa
+          return $fa
         }
-    }
-    else {
-        throw "Specified RDM is not hosted on FlashArray storage."
     }
     throw "Specified RDM was not found on the passed in FlashArrays."
 }
@@ -380,10 +373,10 @@ function New-PfaRDMSnapshot {
     .OUTPUTS
       Returns created snapshot.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/09/2019
-      Purpose/Change: Added examples, validation to parameters.
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -426,18 +419,17 @@ function New-PfaRDMSnapshot {
         foreach ($rdmDisk in $rdm)
         {
             $fa = get-pfaConnectionfromRDM -rdm $rdmDisk -flasharray $flasharray -ErrorAction Stop
-            $pureVol = $rdmDisk | get-faVolfromRDM -flasharray $fa -ErrorAction Stop
+            $pureVol = $rdmDisk | Get-PfaRDMVol -flasharray $fa -ErrorAction Stop
             $Global:CurrentFlashArray = $fa
-            if ($suffix -eq "")
+            if ($suffix -ne "")
             {
-                $newSnapshot = New-PfaVolumeSnapshots -Array $fa -Sources $pureVol.name  
+              $newSnapshot = New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($pureVol.name)`"],`"suffix`":`"$($suffix)`"}" -SkipCertificateCheck -ErrorAction Stop
             }
             else {
-                $newSnapshot = New-PfaVolumeSnapshots -Array $fa -Sources $pureVol.name -Suffix $suffix
+              $newSnapshot = New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($pureVol.name)`"]}" -SkipCertificateCheck -ErrorAction Stop
             }
             $allSnaps += $newSnapshot
         }
-        
     }
     End {
         return $allSnaps
@@ -454,10 +446,10 @@ function Get-PfaRDMSnapshot {
     .OUTPUTS
       Returns FlashArray snapshot(s).
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/10/2019
-      Purpose/Change: Added RDM Validation
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -495,9 +487,9 @@ function Get-PfaRDMSnapshot {
       {
         $flasharray = getAllFlashArrays 
       }
-      $fa = get-pfaConnectionlfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
-      $pureVol = $rdm | get-faVolfromRDM -flasharray $fa 
-      $snapshots = Get-PfaVolumeSnapshots -Array $fa -VolumeName $pureVol.name 
+      $fa = get-pfaConnectionfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
+      $pureVol = $rdm | Get-PfaRDMVol -flasharray $fa 
+      $snapshots = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType GET -flasharray $fa -SkipCertificateCheck -queryFilter "?snap=true"
       return $snapshots
 }
 function Copy-PfaSnapshotToRDM {
@@ -513,20 +505,20 @@ function Copy-PfaSnapshotToRDM {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/28/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
       PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
-      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -suffix mySnapshot -offlineConfirm
+      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -snapshot mySnapshot -offlineConfirm
       
       Removes the RDM, refreshes it from a snapshot and adds it back to the VM.
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
       PS C:\ $rdm = get-vm myVM | get-harddisk |where-object {$_.DiskType -eq 'RawPhysical'}
-      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -flasharray $fa -suffix mySnapshot -offlineConfirm
+      PS C:\ Copy-PfaSnapshotToRDM -rdm $rdm -flasharray $fa -snapshot mySnapshot -offlineConfirm
       
       Removes the RDM, refreshes it from a snapshot and adds it back to the VM.
 
@@ -574,13 +566,13 @@ function Copy-PfaSnapshotToRDM {
         {
           $flasharray = getAllFlashArrays 
         }
-        $fa = get-pfaConnectionlfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
-        $sourceVol = $rdm | get-faVolfromRDM -flasharray $fa 
+        $fa = get-pfaConnectionfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
+        $sourceVol = $rdm | Get-PfaRDMVol -flasharray $fa 
         $vm = $rdm.Parent
         $controller = $rdm |Get-ScsiController
         $datastore = $rdm |Get-Datastore
         Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
-        $refreshedVol = New-PfaVolume -Array $fa -VolumeName $sourceVol.name -Source $snapshot -Overwrite -ErrorAction Stop
+        $refreshedVol = New-PfaRestOperation -resourceType "volume/$($sourceVol.name)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($snapshot)`"}" -SkipCertificateCheck -ErrorAction Stop
         $esxiHosts = $rdm.Parent | Get-VMHost 
         foreach ($esxiHost in $esxiHosts)
         {
@@ -608,10 +600,10 @@ function Set-PfaRDMCapacity {
     .OUTPUTS
       Returns RDM disk.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/10/2019
-      Purpose/Change: Added validation and parameter sets
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -685,8 +677,8 @@ function Set-PfaRDMCapacity {
     {
       $flasharray = getAllFlashArrays 
     }
-    $fa = get-pfaConnectionlfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
-    $pureVol = $rdm | get-faVolfromRDM -flasharray $fa 
+    $fa = get-pfaConnectionfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
+    $pureVol = $rdm | Get-PfaRDMVol -flasharray $flasharray 
     if (($truncate -ne $true) -and ($pureVol.size -gt $volSize))
     {
         throw "This operation will shrink the target RDM--please ensure this is expected and if so, please rerun the operation with the -truncate parameter."
@@ -697,10 +689,10 @@ function Set-PfaRDMCapacity {
     Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
     if ($truncate -eq $true)
     {
-        $expandedVol = Resize-PfaVolume -Array $fa -VolumeName $pureVol.name -NewSize $volSize -Truncate
+      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $flasharray -jsonBody "{`"truncate`":true,`"size`":$($volSize)}" -SkipCertificateCheck 
     }
     else {
-        $expandedVol = Resize-PfaVolume -Array $fa -VolumeName $pureVol.name -NewSize $volSize 
+      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $flasharray -jsonBody "{`"size`":$($volSize)}" -SkipCertificateCheck 
     }
     $esxiHosts = $rdm.Parent| Get-VMHost 
     foreach ($esxiHost in $esxiHosts)
@@ -713,7 +705,7 @@ function Set-PfaRDMCapacity {
         }
         $storageSystem.RefreshStorageSystem()
     }
-    $expandedVol = Get-PfaVolume -Name $expandedVol.name -Array $flasharray
+    $expandedVol = New-PfaRestOperation -resourceType "volume/$($expandedVol.name)" -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
     $newNAA =  "naa.624a9370" + $expandedVol.serial.toLower()
     $vm | new-harddisk -DeviceName "/vmfs/devices/disks/$($newNAA)" -DiskType RawPhysical -Controller $controller -Datastore $datastore -ErrorAction stop |Out-Null
     $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
@@ -730,10 +722,10 @@ function Remove-PfaRDM {
     .OUTPUTS
       Returns destroyed FA volume(s).
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/10/2019
-      Purpose/Change: Added RDM type handling
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -778,24 +770,24 @@ function Remove-PfaRDM {
             $pureVol = $rdmDisk | get-faVolfromRDM -flasharray $fa 
             $esxiHosts += $rdmDisk.Parent|get-cluster| Get-VMHost 
             Remove-HardDisk $rdmDisk -DeletePermanently -Confirm:$false
-            $hostConnections = Get-PfaVolumeHostConnections -Array $fa -VolumeName $pureVol.name
+            $hostConnections = New-PfaRestOperation -resourceType volume/$($pureVol.name)/host -restOperationType GET -flasharray $fa -SkipCertificateCheck
             if ($hostConnections.count -gt 0)
             {
                 foreach ($hostConnection in $hostConnections)
                 {
-                    Remove-PfaHostVolumeConnection -Array $fa -VolumeName $pureVol.name -HostName $hostConnection.host |Out-Null
+                    New-PfaRestOperation -resourceType "host/$($hostConnection.host)/volume/$($pureVol.name)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck |Out-Null
                 } 
             }
-            $hostGroupConnections = Get-PfaVolumeHostGroupConnections -Array $fa -VolumeName $pureVol.name
+            $hostGroupConnections = New-PfaRestOperation -resourceType volume/$($pureVol.name)/hgroup -restOperationType GET -flasharray $fa -SkipCertificateCheck
             if ($hostGroupConnections.count -gt 0)
             {
                 $hostGroupConnections = $hostGroupConnections.hgroup |Select-Object -unique
                 foreach ($hostGroupConnection in $hostGroupConnections)
                 {
-                    Remove-PfaHostGroupVolumeConnection -Array $fa -VolumeName $pureVol.name -HostGroupName $hostGroupConnection |Out-Null
+                  New-PfaRestOperation -resourceType "hgroup/$($hostGroupConnection)/volume/$($pureVol.name)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck |Out-Null
                 } 
             }
-          $destroyedVol =  Remove-PfaVolumeOrSnapshot -Array $fa -Name $pureVol.name 
+          $destroyedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck
           $destroyedVols += $destroyedVol
         }
     }
@@ -824,10 +816,10 @@ function Convert-PfaRDMToVvol {
     .OUTPUTS
       Returns the new VVol virtual disk.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/16/2019
-      Purpose/Change: Updated for examples, validation sets
+      Creation Date:  08/25/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
@@ -886,9 +878,9 @@ function Convert-PfaRDMToVvol {
     {
       $flasharray = getAllFlashArrays 
     }
-    $fa = get-pfaConnectionlfromRDM -flasharray $flasharray -rdm $rdm -ErrorAction Stop
-    $sourceVol = $rdm|get-faVolfromRDM -flasharray $fa -ErrorAction Stop
-    $arraySerial = (Get-PfaArrayAttributes -array $fa).id
+    $fa = get-pfaConnectionfromRDM -flasharray $flasharray -rdm $rdm -ErrorAction Stop
+    $sourceVol = $rdm| Get-PfaRDMVol -flasharray $fa -ErrorAction Stop
+    $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
     if ($null -eq $datastore)
     {
         $datastores = $vm |get-vmhost |Get-Datastore |Where-Object {$_.Type -eq "VVOL"}
@@ -914,13 +906,13 @@ function Convert-PfaRDMToVvol {
     }
     $controller = $rdm |Get-ScsiController
     $volSize = $rdm.CapacityGB
-    remove-faVolRDM -rdm $rdm -flasharray $fa -ErrorAction Stop |Out-Null
+    Remove-PfaRDM -rdm $rdm -flasharray $fa -ErrorAction Stop |Out-Null
     $vvolVmdk = $vm | new-harddisk -CapacityGB $volSize -Controller $controller -Datastore $datastore -ErrorAction stop
     $vvolUuid = $vvolVmdk |get-vvolUuidFromHardDisk
     $targetVol = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
-    Restore-PfaDestroyedVolume -Array $fa -Name $sourceVol.name |Out-Null
-    New-PfaVolume -Array $fa -VolumeName $targetVol -Source $sourceVol.name -Overwrite -ErrorAction Stop |Out-Null
-    Remove-PfaVolumeOrSnapshot -Array $fa -Name $sourceVol.name |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($sourceVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"action`":`"recover`"}" -SkipCertificateCheck |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($targetVol)" -restOperationType POST -flasharray $fa -jsonBody "{`"source`":`"$($sourceVol.name)`"}" -SkipCertificateCheck -ErrorAction Stop
+    New-PfaRestOperation -resourceType "volume/$($sourceVol.nam)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck |Out-Null
     return $vvolVmdk
 }
 function checkDefaultFlashArray{
