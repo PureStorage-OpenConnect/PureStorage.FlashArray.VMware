@@ -64,7 +64,7 @@ function Get-PfaVMFSVol {
     else {
       $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray
     }
-    $pureVolumes = Get-PfaVolumes -Array  $fa
+    $pureVolumes = New-PfaRestOperation -resourceType volume -restOperationType GET -flasharray $fa -SkipCertificateCheck
     $lun = $datastore.ExtensionData.Info.Vmfs.Extent.DiskName |select-object -unique
     $volserial = ($lun.ToUpper()).substring(12)
     $purevol = $purevolumes | where-object { $_.serial -eq $volserial }
@@ -123,6 +123,7 @@ function New-PfaVmfs {
 
             [Parameter(ParameterSetName='GB',Position=2,mandatory=$true)]
             [Parameter(ParameterSetName='TB',Position=2,mandatory=$true)]
+            [Parameter(ParameterSetName='Snapshot',Position=5)]
             [ValidateScript({
               if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
               {
@@ -169,13 +170,20 @@ function New-PfaVmfs {
         {
           foreach ($fa in $flasharray)
           {
-            $snapshot = Get-PfaVolumeSnapshot -Array $fa -SnapshotName $snapName
+            $snapshot = $null
+            $snapshot = New-PfaRestOperation -resourceType volume/$($snapName) -restOperationType GET -flasharray $fa -SkipCertificateCheck -queryFilter "?snap=true"
             if ($null -ne $snapshot)
             {
               break
             }
-          } 
-          $newDatastores = New-PfaVmfsFromSnapshot -cluster $cluster -flasharray $fa -snapName $snapshot.name
+          }
+          if ([string]::IsNullOrEmpty($volName))
+          {
+            $newDatastores = New-PfaVmfsFromSnapshot -cluster $cluster -flasharray $fa -snapName $snapshot.name
+          }
+          else {
+            $newDatastores = New-PfaVmfsFromSnapshot -cluster $cluster -flasharray $fa -snapName $snapshot.name -volumeName $volName
+          }
           $Global:CurrentFlashArray = $fa
         }
         else 
@@ -189,18 +197,17 @@ function New-PfaVmfs {
             {
                 for ($h =0; $h -lt $volNames.Count; $h++)
                 {
-                  Remove-PfaHostGroupVolumeConnection -Array $allFAs[$h] -VolumeName $volNames[$h] -HostGroupName $hostGroupNames[$h] |Out-Null
-                  Remove-PfaVolumeOrSnapshot -Array $allFAs[$h] -Name $volNames[$h] |Out-Null
-                  Remove-PfaVolumeOrSnapshot -Array $allFAs[$h] -Name $volNames[$h] -Eradicate |Out-Null
+                  New-PfaRestOperation -resourceType "hgroup/$($hostGroupNames[$h])/volume/$($volNames[$h])" -restOperationType DELETE -flasharray $allFAs[$h] -SkipCertificateCheck |Out-Null
+                  New-PfaRestOperation -resourceType "volume/$($volNames[$h])" -restOperationType DELETE -flasharray $allFAs[$h] -SkipCertificateCheck |Out-Null
+                  New-PfaRestOperation -resourceType "volume/$($volNames[$h])" -restOperationType DELETE -flasharray $allFAs[$h] -SkipCertificateCheck -queryFilter "?eradicate=true" |Out-Null
                 }
-                $cluster | get-pfaHostGroupfromVcCluster -flasharray $fa -ErrorAction Stop
             }
             if ($oneVolume -gt 0)
             {
               if ($oneVolume -eq 1)
               {
                 $nameSuffix = ("-" + (get-random -Maximum 9999 -Minimum 1000))
-                Rename-PfaVolumeOrSnapshot -Array $lastFA -Name $volName -NewName ($volName + $nameSuffix) |Out-Null
+                New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType PUT -flasharray $lastFA -jsonBody "{`"name`":`"$($volName)$($nameSuffix)`"}" -SkipCertificateCheck |Out-Null
                 $volNames[0] = ($volName + "-" + $nameSuffix)
                 $newName = ($volName + "-" + (get-random -Maximum 9999 -Minimum 1000))
               }
@@ -211,10 +218,10 @@ function New-PfaVmfs {
             else {
               $newName = $volName
             }
-            $newVol = New-PfaVolume -Array $fa -Size $volSize -VolumeName $newName -ErrorAction Stop
+            $newVol = New-PfaRestOperation -resourceType "volume/$($newName)" -restOperationType POST -flasharray $fa -jsonBody "{`"size`":`"$($volSize)`"}" -SkipCertificateCheck -ErrorAction Stop
             $Global:CurrentFlashArray = $fa
             $lastFA = $fa
-            New-PfaHostGroupVolumeConnection -Array $fa -VolumeName $newVol.name -HostGroupName $hostGroup.name |Out-Null
+            New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($newVol.name)" -restOperationType POST -flasharray $fa -SkipCertificateCheck -ErrorAction Stop |Out-Null
             $newNAAs +=  "naa.624a9370" + $newVol.serial.toLower()
             $allFAs += $fa
             $volNames += $newVol.name
@@ -227,7 +234,7 @@ function New-PfaVmfs {
     {
       if ($newDatastores.count -lt 1)
       {
-        $esxi = $cluster | get-vmhost | where-object {($_.version -like '5.5.*') -or ($_.version -like '6.*')}| where-object {($_.ConnectionState -eq 'Connected')} |Select-Object -last 1
+        $esxi = $cluster | get-vmhost | where-object {($_.version -like '5.5.*') -or ($_.version -like '6.*') -or ($_.version -like '7.*')}| where-object {($_.ConnectionState -eq 'Connected')} |Select-Object -last 1
         $cluster| Get-VMHost | Get-VMHostStorage -RescanAllHba |Out-Null
         $ESXiApiVersion = $esxi.ExtensionData.Summary.Config.Product.ApiVersion
         $varCount = 0
@@ -248,9 +255,9 @@ function New-PfaVmfs {
             }
             catch {
                 Write-Error $Global:Error[0]
-                Remove-PfaHostGroupVolumeConnection -Array $allFAs[$varCount] -VolumeName $volNames[$varCount] -HostGroupName $hostGroupNames[$varCount] |Out-Null
-                Remove-PfaVolumeOrSnapshot -Array $allFAs[$varCount] -Name $volNames[$varCount] |Out-Null
-                Remove-PfaVolumeOrSnapshot -Array $allFAs[$varCount] -Name $volNames[$varCount] -Eradicate |Out-Null
+                New-PfaRestOperation -resourceType "hgroup/$($hostGroupNames[$varCount])/volume/$($volNames[$varCount])" -restOperationType DELETE -flasharray $allFAs[$varCount] -SkipCertificateCheck |Out-Null
+                New-PfaRestOperation -resourceType "volume/$($volNames[$varCount])" -restOperationType DELETE -flasharray $allFAs[$varCount] -SkipCertificateCheck |Out-Null
+                New-PfaRestOperation -resourceType "volume/$($volNames[$varCount])" -restOperationType DELETE -flasharray $allFAs[$varCount] -SkipCertificateCheck -queryFilter "?eradicate=true" |Out-Null
             }
             $varCount++
         }
@@ -340,7 +347,7 @@ function Add-PfaVmfsToCluster {
             else 
             {
               try {
-                $faConnection = New-PfaHostGroupVolumeConnection -Array $fa -VolumeName $pureVol.name -HostGroupName $hostGroup.name -ErrorAction Stop
+                $faConnection = New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($pureVol.name)" -restOperationType POST -flasharray $fa -SkipCertificateCheck -ErrorAction Stop
               }
               catch {
                 Write-Error $Global:Error[0]
@@ -439,7 +446,7 @@ function Set-PfaVmfsCapacity {
     {
         throw "The new size cannot be smaller than the existing size. VMFS volumes cannot be shrunk."
     }
-    Resize-PfaVolume -Array $fa -VolumeName $pureVol.name -NewSize $volSize -ErrorAction Stop |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"size`":$($volSize)}" -SkipCertificateCheck |Out-Null
     $Global:CurrentFlashArray = $fa
     foreach ($dsHost in $datastore.ExtensionData.Host.Key)
     {
@@ -525,7 +532,7 @@ function Get-PfaVmfsSnapshot {
         $fa = get-pfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
     $pureVol = $datastore | get-pfaVolfromVMFS -flasharray $fa -ErrorAction Stop
-    $volSnapshots = Get-PfaVolumeSnapshots -Array $fa -VolumeName $pureVol.name 
+    $volSnapshots = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType GET -flasharray $fa -SkipCertificateCheck -queryFilter "?snap=true"
     $Global:CurrentFlashArray = $fa
     return $volSnapshots
 }
@@ -643,10 +650,10 @@ function New-PfaVmfsSnapshot {
             $Global:CurrentFlashArray = $fa
             if ($suffix -ne "")
             {
-              $newSnapshots += New-PfaVolumeSnapshots -Array $fa -Sources $pureVol.name -Suffix $suffix
+              $newSnapshots += New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($pureVol.name)`"],`"suffix`":`"$($suffix)`"}" -SkipCertificateCheck -ErrorAction Stop
             }
             else {
-              $newSnapshots += New-PfaVolumeSnapshots -Array $fa -Sources $pureVol.name 
+              $newSnapshots += New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($pureVol.name)`"]}" -SkipCertificateCheck -ErrorAction Stop
             }
             
         }
@@ -711,24 +718,18 @@ function New-PfaVmfsFromSnapshot {
           [PurePowerShell.PureArray]$flasharray,
 
           [Parameter(Position=2,mandatory=$true)]
-          [string]$snapName
+          [string]$snapName,
+
+          [Parameter(Position=3)]
+          [string]$volumeName
   )
-  $volumeName = $snapName.split(".")
-  if ($volumeName.count -eq 3)
+  if ([string]::IsNullOrWhiteSpace($volumeName))
   {
-    $volumeName = $volumeName[2]
-  } elseif ($volumeName.count -eq 2) 
-  {
-    $volumeName = $volumeName[0]
+    $volumeName = "newVMFSfromsnapshot-" + (Get-Random -Minimum 10000 -Maximum 99999)
   }
-  $volumeName = $volumeName.Split("/")
-  if ($volumeName.count -eq 2) {
-    $volumeName = $volumeName[1]
-  }
-  $volumeName = "$($volumeName)-snap-" + (Get-Random -Minimum 1000 -Maximum 9999)
-  $newVol =New-PfaVolume -Array $flasharray -Source $snapName -VolumeName $volumeName -ErrorAction Stop
+  $newVol = New-PfaRestOperation -resourceType "volume/$($volumeName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"source`":`"$($snapName)`"}" -SkipCertificateCheck -ErrorAction Stop
   $hostGroup = $flasharray |get-pfaHostGroupfromVcCluster -cluster $cluster
-  New-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newVol.name -HostGroupName $hostGroup.name |Out-Null
+  New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($newVol.name)" -restOperationType POST -flasharray $flasharray -SkipCertificateCheck -ErrorAction Stop |Out-Null
   $esxi = $cluster | Get-VMHost| where-object {($_.ConnectionState -eq 'Connected')} |Select-Object -last 1 
   $esxi | Get-VMHostStorage -RescanAllHba -RescanVMFS -ErrorAction stop |Out-Null
   $hostStorage = get-view -ID $esxi.ExtensionData.ConfigManager.StorageSystem
@@ -770,9 +771,9 @@ function New-PfaVmfsFromSnapshot {
   }
   if ($deleteVol -eq $true)
   {
-      Remove-PfaHostGroupVolumeConnection -Array $flasharray -VolumeName $newVol.name -HostGroupName $hostGroup.name |Out-Null
-      Remove-PfaVolumeOrSnapshot -Array $flasharray -Name $newVol.name |Out-Null
-      Remove-PfaVolumeOrSnapshot -Array $flasharray -Name $newVol.name -Eradicate |Out-Null
+      New-PfaRestOperation -resourceType "hgroup/$($hostGroup.name)/volume/$($newVol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck |Out-Null
+      New-PfaRestOperation -resourceType "volume/$($newVol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck |Out-Null
+      New-PfaRestOperation -resourceType "volume/$($newVol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck -queryFilter "?eradicate=true" |Out-Null
       return $null
   }
   $esxcli=get-esxcli -VMHost $esxi -v2 -ErrorAction stop
