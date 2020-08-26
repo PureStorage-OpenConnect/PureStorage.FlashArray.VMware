@@ -1,4 +1,4 @@
-function Install-PfavSpherePlugin {
+function Install-PfaVspherePlugin {
   <#
   .SYNOPSIS
     Installs or updates the FlashArray vSphere Plugin
@@ -11,25 +11,30 @@ function Install-PfavSpherePlugin {
   .EXAMPLE
     PS C:\ Install-PfavSpherePlugin 
     
-    Installs the latest appropriate plugin (flash or HTML) located on Pure1 to the connected vCenter
+    Installs the latest appropriate plugin (flash or HTML) located on Pure1 on every vCenter in $Global:DefaultViservers
+  .EXAMPLE
+    PS C:\ $vCenter = connect-viserver -Server myVcenter.purestorage.com
+    PS C:\ Install-PfavSpherePlugin -Server $vCenter
+    
+    Installs the latest appropriate plugin (flash or HTML) located on Pure1 on the specified vCenter(s)
   .EXAMPLE
     PS C:\ Install-PfavSpherePlugin -confirm:$false
     
-    Installs the latest appropriate plugin (flash or HTML) located on Pure1 to the connected vCenter without prompting for confirmation
+    Installs the latest appropriate plugin (flash or HTML) located on Pure1 without prompting for confirmation on every vCenter in $Global:DefaultViservers
   .EXAMPLE
     PS C:\ Install-PfavSpherePlugin -flash -version 3.1.2
     
-    Installs the Flash 3.1.2 plugin located on Pure1 to the connected vCenter.  
+    Installs the Flash 3.1.2 plugin located on Pure1 on every vCenter in $Global:DefaultViservers.  
   .EXAMPLE
     PS C:\ Install-PfavSpherePlugin -customSource https://myflasharray.pure.com/plugin.zip
     
-    Installs the plugin that is hosted on the specified HTTPS zip source (a web server or object target) to the connected vCenter. 
+    Installs the plugin that is hosted on the specified HTTPS zip source (a web server or object target) on every vCenter in $Global:DefaultViservers. 
 
   .NOTES
-    Version:        3.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  05/20/2020
-    Purpose/Change: Added parameter sets and validation
+    Creation Date:  08/26/2020
+    Purpose/Change: Multi-vCenter support.
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -75,8 +80,24 @@ function Install-PfavSpherePlugin {
             }
           })]
           [Parameter(ParameterSetName='Custom',Position=2)]
-          [string]$customSource
+          [string]$customSource,
+
+          [Parameter(Position=3)]
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
       )
+  if ($null -eq $server)
+  {
+    if ($global:defaultviservers.count -gt 0)
+    {
+      $vCenters = $global:defaultviservers
+    }
+    else {
+      throw "You must connect to one or more vCenters with connect-viserver in order to install the plugin."
+    }
+  }
+  else {
+    $vCenters = $server
+  }
   if (!([string]::IsNullOrWhiteSpace($customSource)))
   {
     if ($html -eq $flash)
@@ -88,251 +109,260 @@ function Install-PfavSpherePlugin {
     $pure1 = $true
   }
   $ErrorActionPreference = "Stop"
-  if ($null -eq $global:defaultviserver)
+  foreach ($vCenter in $vCenters)
   {
-    throw "There is no PowerCLI connection to a vCenter, please connect first with connect-viserver."
-  }
-  ####Check vCenter versions and plugin version compatibility
-  $vCenterVersion = ($global:DefaultVIServer | Select-Object Version).version
-  if ($vCenterVersion.split(".")[0] -eq 5)
-  {
-    throw "This cmdlet does not support vCenter 5.x"
-  }
-  if (($html -eq $false) -and ($flash -eq $false))
-  {
-    if (($vCenterVersion.split(".")[1] -eq 0) -and ($vCenterVersion.split(".")[0] -eq 6))
+    ####Check vCenter versions and plugin version compatibility
+    $vCenterVersion = ($vCenter | Select-Object Version).version
+    if ($vCenterVersion.split(".")[0] -eq 5)
     {
-      $flash = $true
+      Write-Warning "The vCenter $($vcenter.Name) is not version 6.5 or later. This cmdlet does not support vCenter $($vCenterVersion). Skipping this vCenter."
+      continue
     }
-    else {
-      $html = $true
-    }
-  }
-  if ($html -eq $true)
-  {
-    if (($vCenterVersion.split(".")[1] -eq 0) -and ($vCenterVersion.split(".")[0] -eq 6))
+    if (($html -eq $false) -and ($flash -eq $false))
     {
-      throw "The specified version of the plugin (HTML) does not support vCenter 6.0. 6.5 and later only."
+      if (($vCenterVersion.split(".")[1] -eq 0) -and ($vCenterVersion.split(".")[0] -eq 6))
+      {
+        $flash = $true
+      }
+      else {
+        $html = $true
+      }
     }
-  }
-  if (($version -match '3\.[0-9]+\.[0-9]+$'))
-  {
-    $flash = $true
     if ($html -eq $true)
     {
-      throw "The specified version $($version) is not a valid version for the HTML plugin. Must be 4.x.x or higher."
+      if (($vCenterVersion.split(".")[1] -eq 0) -and ($vCenterVersion.split(".")[0] -eq 6))
+      {
+        Write-Warning "The vCenter $($vcenter.Name) is not version 6.5 or later. This cmdlet does not support vCenter $($vCenterVersion). Skipping this vCenter."
+        continue
+      }
     }
-  }
-  if (($version -match '4\.[0-9]+\.[0-9]+$'))
-  {
-    $html = $true
-    if ($flash -eq $true)
+    if (($version -match '3\.[0-9]+\.[0-9]+$'))
     {
-      throw "The specified version $($version) is not a valid version for the flash plugin. Must be 3.x.x or lower."
+      $flash = $true
+      if ($html -eq $true)
+      {
+        throw "The specified version $($version) is not a valid version for the HTML plugin. Must be 4.x.x or higher."
+      }
     }
-  }
-  #gather extension manager
-  $services = Get-view 'ServiceInstance'
-  $extensionMgr  = Get-view $services.Content.ExtensionManager
-
-  #find what plugins are installed and their version
-  $installedHtmlVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
-  $installedFlashVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
-
-  #identify available plugin versions.
-  if ($pure1 -eq $true)
-  {
-    $global:pfavSpherePluginUrl = $true
-    if (!([string]::IsNullOrWhiteSpace($version)))
+    if (($version -match '4\.[0-9]+\.[0-9]+$'))
     {
-      $fullPluginInfo = Get-PfavSpherePlugin -version $version -html:$html -flash:$flash -previous
+      $html = $true
+      if ($flash -eq $true)
+      {
+        throw "The specified version $($version) is not a valid version for the flash plugin. Must be 3.x.x or lower."
+      }
+    }
+    #gather extension manager
+    $services = Get-view 'ServiceInstance' -Server $vCenter
+    $extensionMgr  = Get-view $services.Content.ExtensionManager -Server $vCenter
+
+    #find what plugins are installed and their version
+    $installedHtmlVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
+    $installedFlashVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
+
+    #identify available plugin versions.
+    if ($pure1 -eq $true)
+    {
+      $global:pfavSpherePluginUrl = $true
+      if (!([string]::IsNullOrWhiteSpace($version)))
+      {
+        $fullPluginInfo = Get-PfavSpherePlugin -version $version -html:$html -flash:$flash -previous
+      }
+      else {
+        $fullPluginInfo = Get-PfavSpherePlugin -html:$html -flash:$flash
+      }
+      if ($null -eq $fullPluginInfo)
+      {
+        throw "Specified plugin type or version not found on available source"
+      }
+      if ($fullPluginInfo.count -gt 1)
+      {
+        throw "Too many plugin versions returned. Internal script error!"
+      }
+      $hostedVersion = $fullPluginInfo.version
+      $global:pfavSpherePluginUrl = $null
     }
     else {
-      $fullPluginInfo = Get-PfavSpherePlugin -html:$html -flash:$flash
+      $hostedVersion = $version
     }
-    if ($null -eq $fullPluginInfo)
+    #find out what plugin will be installed and whether it is an upgrade. Will fail if newer version is on vCenter
+    $upgrade = $false
+    if ($hostedVersion.split(".")[0] -ge 4)
     {
-      throw "Specified plugin type or version not found on available source"
+        if ($null -ne $installedHtmlVersion)
+        {
+            $splitInstalled = $installedHtmlVersion.split(".")
+            $splitHosted = $hostedVersion.split(".")
+            if ($splitInstalled[0] -eq $splitHosted[0])
+            {
+                if ($splitInstalled[1] -eq $splitHosted[1])
+                {
+                    if ($splitInstalled[2] -lt $splitHosted[2])
+                    {
+                        $upgrade = $true
+                    }
+                    elseif ($splitInstalled[2] -eq $splitHosted[2])
+                    {
+                        Write-Warning -Message "The installed version of the plugin ($($installedHtmlVersion)) is the same as the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                        continue
+                    }
+                    elseif ($splitInstalled[2] -gt $splitHosted[2])
+                    {
+                        Write-Warning -Message  "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                        continue
+                    }
+                }
+                elseif ($splitInstalled[1] -lt $splitHosted[1]) 
+                {
+                    $upgrade = $true
+                }
+                else {
+                    Write-Warning -Message  "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                    continue
+                }
+            }
+            elseif ($splitInstalled[0] -lt $splitHosted[0]) 
+            {
+                $upgrade = $true
+            }
+            else {
+                Write-Warning -Message "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                continue
+            }
+        }
     }
-    if ($fullPluginInfo.count -gt 1)
+    elseif ($hostedVersion.split(".")[0] -eq 3) 
     {
-      throw "Too many plugin versions returned. Internal script error!"
+        if ($null -ne $installedFlashVersion)
+        {
+            $splitInstalled = $installedFlashVersion.split(".")
+            $splitHosted = $hostedVersion.split(".")
+            if ($splitInstalled[0] -eq $splitHosted[0])
+            {
+                if ($splitInstalled[1] -eq $splitHosted[1])
+                {
+                    if ($splitInstalled[2] -lt $splitHosted[2])
+                    {
+                        $upgrade = $true
+                    }
+                    elseif ($splitInstalled[2] -eq $splitHosted[2])
+                    {
+                      Write-Warning -Message "The installed version of the plugin ($($installedFlashVersion)) is the same as the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                      continue
+                    }
+                    elseif ($splitInstalled[2] -gt $splitHosted[2])
+                    {
+                      Write-Warning -Message "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                      continue
+                    }
+                }
+                elseif ($splitInstalled[1] -lt $splitHosted[1]) 
+                {
+                    $upgrade = $true
+                }
+                else {
+                  Write-Warning -Message "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+                  continue
+                }
+            }
+            elseif ($splitInstalled[0] -lt $splitHosted[0]) 
+            {
+                $upgrade = $true
+            }
+            else {
+              Write-Warning -Message "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion)). Skipping vCenter $($vCenter.name)."
+              continue
+            }
+        }
     }
-    $hostedVersion = $fullPluginInfo.version
-    $global:pfavSpherePluginUrl = $null
-  }
-  else {
-    $hostedVersion = $version
-  }
-  #find out what plugin will be installed and whether it is an upgrade. Will fail if newer version is on vCenter
-  $upgrade = $false
-  if ($hostedVersion.split(".")[0] -ge 4)
-  {
-      if ($null -ne $installedHtmlVersion)
-      {
-          $splitInstalled = $installedHtmlVersion.split(".")
-          $splitHosted = $hostedVersion.split(".")
-          if ($splitInstalled[0] -eq $splitHosted[0])
-          {
-              if ($splitInstalled[1] -eq $splitHosted[1])
-              {
-                  if ($splitInstalled[2] -lt $splitHosted[2])
-                  {
-                      $upgrade = $true
-                  }
-                  elseif ($splitInstalled[2] -eq $splitHosted[2])
-                  {
-                      throw "The installed version of the plugin ($($installedHtmlVersion)) is the same as the version on the specified source ($($hostedVersion))"
-                  }
-                  elseif ($splitInstalled[2] -gt $splitHosted[2])
-                  {
-                      throw "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion))"
-                  }
-              }
-              elseif ($splitInstalled[1] -lt $splitHosted[1]) 
-              {
-                  $upgrade = $true
-              }
-              else {
-                  throw "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion))"
-              }
-          }
-          elseif ($splitInstalled[0] -lt $splitHosted[0]) 
-          {
-              $upgrade = $true
-          }
-          else {
-              throw "The installed version of the plugin ($($installedHtmlVersion)) is newer than the version on the specified source ($($hostedVersion))"
-          }
-      }
-  }
-  elseif ($hostedVersion.split(".")[0] -eq 3) 
-  {
-      if ($null -ne $installedFlashVersion)
-      {
-          $splitInstalled = $installedFlashVersion.split(".")
-          $splitHosted = $hostedVersion.split(".")
-          if ($splitInstalled[0] -eq $splitHosted[0])
-          {
-              if ($splitInstalled[1] -eq $splitHosted[1])
-              {
-                  if ($splitInstalled[2] -lt $splitHosted[2])
-                  {
-                      $upgrade = $true
-                  }
-                  elseif ($splitInstalled[2] -eq $splitHosted[2])
-                  {
-                      throw "The installed version of the plugin ($($installedFlashVersion)) is the same as the version on the specified source ($($hostedVersion))"
-                  }
-                  elseif ($splitInstalled[2] -gt $splitHosted[2])
-                  {
-                      throw "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion))"
-                  }
-              }
-              elseif ($splitInstalled[1] -lt $splitHosted[1]) 
-              {
-                  $upgrade = $true
-              }
-              else {
-                  throw "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion))"
-              }
-          }
-          elseif ($splitInstalled[0] -lt $splitHosted[0]) 
-          {
-              $upgrade = $true
-          }
-          else {
-              throw "The installed version of the plugin ($($installedFlashVersion)) is newer than the version on the specified source ($($hostedVersion))"
-          }
-      }
-  }
-  #build extension to register. Will pull the SSL thumprint from the target address
-  $description = New-Object VMware.Vim.Description
-  $description.label = "Pure Storage Plugin"
-  $description.summary = "Pure Storage vSphere Plugin for Managing FlashArray"
+    #build extension to register. Will pull the SSL thumprint from the target address
+    $description = New-Object VMware.Vim.Description
+    $description.label = "Pure Storage Plugin"
+    $description.summary = "Pure Storage vSphere Plugin for Managing FlashArray"
 
 
-  $extensionClientInfo = New-Object VMware.Vim.ExtensionClientInfo
-  $extensionClientInfo.Company = "Pure Storage, Inc."
-  $extensionClientInfo.Description = $description
-  $extensionClientInfo.Type = 	"vsphere-client-serenity"
-  $extensionClientInfo.Version = $hostedVersion
+    $extensionClientInfo = New-Object VMware.Vim.ExtensionClientInfo
+    $extensionClientInfo.Company = "Pure Storage, Inc."
+    $extensionClientInfo.Description = $description
+    $extensionClientInfo.Type = 	"vsphere-client-serenity"
+    $extensionClientInfo.Version = $hostedVersion
 
-  $extensionServerInfo = New-Object VMware.Vim.ExtensionServerInfo
-  $extensionServerInfo.AdminEmail = "admin@purestorage.com"
-  $extensionServerInfo.Company = "Pure Storage, Inc."
-  $extensionServerInfo.Description = $description
-  if ($pure1 -eq $true)
-  {
-    $extensionServerInfo.Url = $fullPluginInfo.URL
-    $extensionClientInfo.Url = $fullPluginInfo.URL
-    $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint $fullPluginInfo.URL)
-  }
-  else 
-  {
-    $extensionServerInfo.Url = $customSource
-    $extensionClientInfo.Url = $customSource
-    $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint "$($customSource)")
-  }
-  $extensionServerInfo.Type = "https"
-
-  $extensionSpec = New-Object VMware.Vim.Extension
-  if ($hostedVersion.split(".")[0] -eq 3)
-  {
-      $extensionSpec.key = "com.purestorage.plugin.vsphere"
-      $pluginType = "Flash"
-      $pluginVersion = $installedFlashVersion
-  } 
-  else 
-  {
-      $extensionSpec.key = "com.purestorage.purestoragehtml"
-      $pluginType = "HTML-5"
-      $pluginVersion = $installedHtmlVersion
-  }
-  $extensionSpec.version = $hostedVersion
-  $extensionSpec.Description = $description
-  $extensionSpec.Client += $extensionClientInfo
-  $extensionSpec.Server += $extensionServerInfo
-  $extensionSpec.LastHeartbeatTime = get-date
-
-  if ($pure1 -eq $false)
-  {
-    $source = $customSource
-  }
-  else {
-    $source = "Pure1"
-  }
-  if ($upgrade -eq $true)
-  {
-
-    $confirmText = "Upgrade $($pluginType) plugin from version $($pluginVersion) to $($hostedVersion) on vCenter $($global:DefaultVIServer.name)?"
-  }
-  else {
-    $confirmText = "Install $($pluginType) plugin version $($hostedVersion) on vCenter $($global:DefaultVIServer.name)?"
-  }
-  if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Using $($source) as the download location`n`r")) 
-  {
-    #install or upgrade the vSphere plugin
-    Write-Debug ($extensionSpec.Server |Out-String)
-    Write-Debug ($extensionSpec.Client |Out-String)
-    try {
-      if ($upgrade -eq $true)
-      {
-          $extensionMgr.UpdateExtension($extensionSpec)
-      }
-      else 
-      {
-          $extensionMgr.RegisterExtension($extensionSpec)
-      }
-      write-host "Successfully installed $($pluginType) plugin version $($hostedVersion) on vCenter $($global:DefaultVIServer.name)." -ForegroundColor Green
+    $extensionServerInfo = New-Object VMware.Vim.ExtensionServerInfo
+    $extensionServerInfo.AdminEmail = "admin@purestorage.com"
+    $extensionServerInfo.Company = "Pure Storage, Inc."
+    $extensionServerInfo.Description = $description
+    if ($pure1 -eq $true)
+    {
+      $extensionServerInfo.Url = $fullPluginInfo.URL
+      $extensionClientInfo.Url = $fullPluginInfo.URL
+      $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint $fullPluginInfo.URL)
     }
-    catch {
-      throw "Failed to install the vSphere plugin."
+    else 
+    {
+      $extensionServerInfo.Url = $customSource
+      $extensionClientInfo.Url = $customSource
+      $extensionServerInfo.ServerThumbprint =  (Get-SSLThumbprint "$($customSource)")
     }
-    write-debug ($extensionMgr.FindExtension($extensionSpec.Key) | Out-String)
+    $extensionServerInfo.Type = "https"
+
+    $extensionSpec = New-Object VMware.Vim.Extension
+    if ($hostedVersion.split(".")[0] -eq 3)
+    {
+        $extensionSpec.key = "com.purestorage.plugin.vsphere"
+        $pluginType = "Flash"
+        $pluginVersion = $installedFlashVersion
+    } 
+    else 
+    {
+        $extensionSpec.key = "com.purestorage.purestoragehtml"
+        $pluginType = "HTML-5"
+        $pluginVersion = $installedHtmlVersion
+    }
+    $extensionSpec.version = $hostedVersion
+    $extensionSpec.Description = $description
+    $extensionSpec.Client += $extensionClientInfo
+    $extensionSpec.Server += $extensionServerInfo
+    $extensionSpec.LastHeartbeatTime = get-date
+
+    if ($pure1 -eq $false)
+    {
+      $source = $customSource
+    }
+    else {
+      $source = "Pure1"
+    }
+    if ($upgrade -eq $true)
+    {
+
+      $confirmText = "Upgrade $($pluginType) plugin from version $($pluginVersion) to $($hostedVersion) on vCenter $($vCenter.name)?"
+    }
+    else {
+      $confirmText = "Install $($pluginType) plugin version $($hostedVersion) on vCenter $($vCenter.name)?"
+    }
+    if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Using $($source) as the download location`n`r")) 
+    {
+      #install or upgrade the vSphere plugin
+      Write-Debug ($extensionSpec.Server |Out-String)
+      Write-Debug ($extensionSpec.Client |Out-String)
+      try {
+        if ($upgrade -eq $true)
+        {
+            $extensionMgr.UpdateExtension($extensionSpec)
+        }
+        else 
+        {
+            $extensionMgr.RegisterExtension($extensionSpec)
+        }
+        write-host "Successfully installed $($pluginType) plugin version $($hostedVersion) on vCenter $($vCenter.name)." -ForegroundColor Green
+      }
+      catch {
+        throw "Failed to install the vSphere plugin."
+      }
+      write-debug ($extensionMgr.FindExtension($extensionSpec.Key) | Out-String)
+    }
   }
 }
-function Get-PfavSpherePlugin {
+function Get-PfaVspherePlugin {
   <#
   .SYNOPSIS
     Retrieves version of FlashArray vSphere Plugin on one or more FlashArrays 
@@ -354,11 +384,16 @@ function Get-PfavSpherePlugin {
     PS C:\ Get-PfavSpherePlugin -html
     
     Retrieves the vSphere plugin HTML release available on Pure1.
+  .EXAMPLE
+    PS C:\ $vCenter = connect-viserver -Server myVcenter.purestorage.com
+    PS C:\ Get-PfavSpherePlugin -Server $vCenter 
+    
+    Retrieves the plugin versions, type and source URL on the specified vCenter(s)
   .NOTES
-    Version:        3.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  05/20/2020
-    Purpose/Change: Core support
+    Creation Date:  08/26/2020
+    Purpose/Change: Multi-vCenter support.
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -369,7 +404,7 @@ function Get-PfavSpherePlugin {
   ************************************************************************
   #>
 
-  [CmdletBinding()]
+  [CmdletBinding(DefaultParameterSetName='Hosted')]
   Param(
           [Parameter(Position=0)]
           [switch]$html,
@@ -377,90 +412,146 @@ function Get-PfavSpherePlugin {
           [Parameter(Position=1)]
           [switch]$flash,
 
-          [Parameter(Position=2)]
+          [Parameter(ParameterSetName='Hosted',Position=2)]
           [string]$version,
 
-          [Parameter(Position=3)]
-          [switch]$previous
+          [Parameter(ParameterSetName='Hosted',Position=3)]
+          [switch]$previous,
+
+          [Parameter(ParameterSetName='vCenter',Position=4,mandatory=$true)]
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
       )
-  
-    $plugins =@()
-    try {
-      $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip?tagging"
-      $Result = $null
-      $Result = "" | Select-Object Source,Type,Version,URL
-      $Result.Source = "Pure1"
-      $Result.Version = $flashS3tag.Tagging.TagSet.Tag.Value
-      $Result.Type = "Flash"
-      $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip"
-      $plugins += $Result
-      if ($previous -eq $true)
+    if ($null -ne $server)
+    {
+      $plugins =@()
+      foreach ($vCenter in $server) 
       {
-        $previousVersions = (Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/versions.txt?tagging").Tagging.TagSet.Tag.value.split(" ")
-        foreach ($previousVersion in $previousVersions)
+        $services = Get-view 'ServiceInstance' -Server $vCenter
+        $extensionMgr  = Get-view $services.Content.ExtensionManager -Server $vCenter
+        #check for HTML-5 client
+        $installedHtmlVersion = $null
+        $installedHtmlVersion = $extensionMgr.FindExtension("com.purestorage.purestoragehtml")
+        $Result = $null
+        $Result = "" | Select-Object Source,Type,Version,URL
+        if ($null -ne $installedHtmlVersion)
         {
-          $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip?tagging"
-          $Result = $null
-          $Result = "" | Select-Object Source,Type,Version,URL
-          $Result.Source = "Pure1"
-          $Result.Version = $flashS3tag.Tagging.TagSet.Tag.Value
-          $Result.Type = "Flash"
-          $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip"
-          $plugins += $Result
+          $Result.URL = $installedHtmlVersion.Client.Url
+          $Result.Version = $installedHtmlVersion.version
         }
+        else {
+          $Result.URL = $null
+          $Result.Version = "Not Installed"
+        }
+        $Result.Source = $vCenter.name
+        $Result.Type = "HTML-5"
+        $plugins += $Result
+        #check for flash client
+        $installedFlashVersion = $null
+        $installedFlashVersion = $extensionMgr.FindExtension("com.purestorage.plugin.vsphere")
+        $Result = $null
+        $Result = "" | Select-Object Source,Type,Version,URL
+        if ($null -ne $installedFlashVersion)
+        {
+          $Result.URL = $installedFlashVersion.Client.Url
+          $Result.Version = $installedFlashVersion.version
+        }
+        else {
+          $Result.URL = $null
+          $Result.Version = "Not Installed"
+        }
+        $Result.Source = $vCenter.name
+        $Result.Type = "Flash"
+        $plugins += $Result
       }
-      $htmlS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5/purestorage-vsphere-plugin.zip?tagging"
-      $Result = $null
-      $Result = "" | Select-Object Source,Type,Version,URL
-      $Result.Source = "Pure1"
-      $Result.Version = $htmlS3tag.Tagging.TagSet.Tag.Value
-      $Result.Type = "HTML-5"
-      $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5/purestorage-vsphere-plugin.zip"
-      $plugins += $Result
-      if ($previous -eq $true)
+      if (($html -eq $True) -and ($flash -eq $false))
       {
-        $previousVersions = (Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/versions.txt?tagging").Tagging.TagSet.Tag.value.split(" ")
-        foreach ($previousVersion in $previousVersions)
-        {
-          $htmlS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip?tagging"
-          $Result = $null
-          $Result = "" | Select-Object Source,Type,Version,URL
-          $Result.Source = "Pure1"
-          $Result.Version = $htmlS3tag.Tagging.TagSet.Tag.Value
-          $Result.Type = "HTML-5"
-          $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip"
-          $plugins += $Result
-        }
+          $plugins = $plugins |Where-Object {$_.Type -eq "HTML-5"}
       }
+      elseif (($html -eq $false) -and ($flash -eq $true)) 
+      {
+          $plugins = $plugins |Where-Object {$_.Type -eq "Flash"}
+      }
+      return $plugins |Select-Object Source,Type,Version,Url
     }
-    catch {}
-  if (($html -eq $True) -and ($flash -eq $false))
-  {
-      $plugins = $plugins |Where-Object {$_.Type -eq "HTML-5"}
+    else 
+    {
+      $plugins =@()
+      try {
+        $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip?tagging"
+        $Result = $null
+        $Result = "" | Select-Object Source,Type,Version,URL
+        $Result.Source = "Pure1"
+        $Result.Version = $flashS3tag.Tagging.TagSet.Tag.Value
+        $Result.Type = "Flash"
+        $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/Flex/purestorage-vsphere-plugin.zip"
+        $plugins += $Result
+        if ($previous -eq $true)
+        {
+          $previousVersions = (Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/versions.txt?tagging").Tagging.TagSet.Tag.value.split(" ")
+          foreach ($previousVersion in $previousVersions)
+          {
+            $flashS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip?tagging"
+            $Result = $null
+            $Result = "" | Select-Object Source,Type,Version,URL
+            $Result.Source = "Pure1"
+            $Result.Version = $flashS3tag.Tagging.TagSet.Tag.Value
+            $Result.Type = "Flash"
+            $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/FlexOlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip"
+            $plugins += $Result
+          }
+        }
+        $htmlS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5/purestorage-vsphere-plugin.zip?tagging"
+        $Result = $null
+        $Result = "" | Select-Object Source,Type,Version,URL
+        $Result.Source = "Pure1"
+        $Result.Version = $htmlS3tag.Tagging.TagSet.Tag.Value
+        $Result.Type = "HTML-5"
+        $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5/purestorage-vsphere-plugin.zip"
+        $plugins += $Result
+        if ($previous -eq $true)
+        {
+          $previousVersions = (Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/versions.txt?tagging").Tagging.TagSet.Tag.value.split(" ")
+          foreach ($previousVersion in $previousVersions)
+          {
+            $htmlS3tag = Invoke-RestMethod -Method GET -Uri "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip?tagging"
+            $Result = $null
+            $Result = "" | Select-Object Source,Type,Version,URL
+            $Result.Source = "Pure1"
+            $Result.Version = $htmlS3tag.Tagging.TagSet.Tag.Value
+            $Result.Type = "HTML-5"
+            $Result.URL = "https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/vsphere/HTML5OlderRevs/$($previousVersion)/purestorage-vsphere-plugin.zip"
+            $plugins += $Result
+          }
+        }
+      }
+      catch {}
+    if (($html -eq $True) -and ($flash -eq $false))
+    {
+        $plugins = $plugins |Where-Object {$_.Type -eq "HTML-5"}
+    }
+    elseif (($html -eq $false) -and ($flash -eq $true)) 
+    {
+        $plugins = $plugins |Where-Object {$_.Type -eq "Flash"}
+    }
+    if ($version -ne "")
+    {
+      $plugins = $plugins |Where-Object {$_.Version -eq $version}
+    }
+    if ($plugins.count -eq 0)
+    {
+      throw "The specified plugin version/type was not found on any of the available sources."
+    }
+    Write-Debug ($plugins |Out-String) |Format-Table -AutoSize
+    if ($global:pfavSpherePluginurl -eq $True)
+    {
+      return $plugins
+    }
+    else {
+      return $plugins |Select-Object Source,Type,Version
+    }
   }
-  elseif (($html -eq $false) -and ($flash -eq $true)) 
-  {
-      $plugins = $plugins |Where-Object {$_.Type -eq "Flash"}
-  }
-  if ($version -ne "")
-  {
-    $plugins = $plugins |Where-Object {$_.Version -eq $version}
-  }
-  if ($plugins.count -eq 0)
-  {
-    throw "The specified plugin version/type was not found on any of the available sources."
-  }
-  Write-Debug ($plugins |Out-String) |Format-Table -AutoSize
-  if ($global:pfavSpherePluginurl -eq $True)
-  {
-    return $plugins
-  }
-  else {
-    return $plugins |Select-Object Source,Type,Version
-  }
-  
 }
-function Uninstall-PfavSpherePlugin {
+function Uninstall-PfaVspherePlugin {
   <#
   .SYNOPSIS
     Uninstall the Pure Storage FlashArray vSphere Plugin
@@ -486,12 +577,29 @@ function Uninstall-PfavSpherePlugin {
     PS C:\ Uninstall-PfavSpherePlugin -flash
     
     Uninstalls the flash-based plugin from a vCenter.
-
+  .EXAMPLE
+    PS C:\ $vCenter = connect-viserver -Server myVcenter.purestorage.com
+    PS C:\ Uninstall-PfavSpherePlugin -Server $vCenter 
+    
+    Uninstalls the found plugin from the specified vCenter(s)
+  .EXAMPLE
+    PS C:\ $vCenter = connect-viserver -Server myVcenter.purestorage.com
+    PS C:\ Uninstall-PfavSpherePlugin -Server $vCenter -flash
+    
+    Uninstalls the flash plugin from the specified vCenter(s)
+  .EXAMPLE
+    PS C:\ Uninstall-PfavSpherePlugin -Server $Global:DefaultViServers -flash
+    
+    Uninstalls the flash plugin from all currently connected vCenters.
+  .EXAMPLE
+    PS C:\ Uninstall-PfavSpherePlugin -Server $Global:DefaultViServers -flash -Confirm:$false
+    
+    Uninstalls the flash plugin from all currently connected vCenters with no confirmation prompt.
   .NOTES
-    Version:        1.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  01/03/2020
-    Purpose/Change: New cmdlet
+    Creation Date:  08/26/2020
+    Purpose/Change: Multi-vCenter support.
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -507,56 +615,77 @@ function Uninstall-PfavSpherePlugin {
           [Parameter(ParameterSetName='HTML',Position=0)]
           [switch]$html,
 
-          [Parameter(ParameterSetName='Flash',Position=0)]
-          [switch]$flash
-  )
-  $ErrorActionPreference = "stop"
-  #gather extension manager
-  $services = Get-view 'ServiceInstance'
-  $extensionMgr  = Get-view $services.Content.ExtensionManager
-  $htmlPluginVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
-  $flashPluginVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
+          [Parameter(ParameterSetName='Flash',Position=1)]
+          [switch]$flash,
 
-  if (($html -ne $true) -and ($flash -ne $true))
+          [Parameter(Position=2)]
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
+  )
+  if ($null -eq $server)
   {
-    if (($null -ne $flashPluginVersion) -and ($null -ne $htmlPluginVersion))
-    {
-      throw "Both the Flash and HTML-5 Plugins are installed in vCenter $($global:DefaultVIServer.name). Please specify which plugin to uninstall with the -html or -flash parameter."
-    }
-    elseif ($null -ne $flashPluginVersion) {
-      $flash = $true
-    }
-    elseif ($null -ne $htmlPluginVersion) {
-      $html = $true
-    }
-    else {
-      throw "There is no Pure Storage plugin installed on vCenter $($global:DefaultVIServer.name)"
-    }
-  }
-  #find what plugins are installed and their version
-  if ($html -eq $true)
-  {
-    if ($null -eq $htmlPluginVersion)
-    {
-      throw "The HTML-5 plugin is not currently installed in vCenter $($global:DefaultVIServer.name)."
-    }
-    $confirmText = "Uninstall HTML-5 plugin version $($htmlPluginVersion) on vCenter $($global:DefaultVIServer.name)?"
-    if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
-    {
-      $extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
-      write-host "Pure Storage HTML-5 plugin has been uninstalled."
-    }
+    $vCenters = $global:DefaultVIServers
   }
   else {
-    if ($null -eq $flashPluginVersion)
+    $vCenters = $server
+  }
+  if ($null -eq $vCenters)
+  {
+    throw "You must specify one or more vCenter connections in the -server parameter or connect one with connect-viserver"
+  }
+  $ErrorActionPreference = "stop"
+  foreach ($vCenter in $vCenters) 
+  {
+    #gather extension manager
+    $services = Get-view 'ServiceInstance' -Server $vCenter
+    $extensionMgr  = Get-view $services.Content.ExtensionManager -Server $vCenter
+    $htmlPluginVersion = ($extensionMgr.FindExtension("com.purestorage.purestoragehtml")).version
+    $flashPluginVersion = ($extensionMgr.FindExtension("com.purestorage.plugin.vsphere")).version
+
+    if (($html -ne $true) -and ($flash -ne $true))
     {
-      throw "The flash plugin is not currently installed in vCenter $($global:DefaultVIServer.name)."
+      if (($null -ne $flashPluginVersion) -and ($null -ne $htmlPluginVersion))
+      {
+        Write-Warning -Message  "Both the Flash and HTML-5 Plugins are installed in vCenter $($vCenter.name). Please specify which plugin to uninstall with the -html or -flash parameter. Skipping this vCenter."
+        Continue
+      }
+      elseif ($null -ne $flashPluginVersion) {
+        $flash = $true
+      }
+      elseif ($null -ne $htmlPluginVersion) {
+        $html = $true
+      }
+      else {
+        Write-Warning -Message  "There is no Pure Storage plugin installed on vCenter $($vCenter.name). Skipping this vCenter."
+        Continue
+      }
     }
-    $confirmText = "Uninstall flash plugin version $($flashPluginVersion) on vCenter $($global:DefaultVIServer.name)?"
-    if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
+    #find what plugins are installed and their version
+    if ($html -eq $true)
     {
-      $extensionMgr.UnregisterExtension("com.purestorage.plugin.vsphere")
-      write-host "Pure Storage flash plugin has been uninstalled."
+      if ($null -eq $htmlPluginVersion)
+      {
+        Write-Warning -Message  "The HTML-5 plugin is not currently installed in vCenter $($vCenter.name). Skipping this vCenter."
+        Continue
+      }
+      $confirmText = "Uninstall HTML-5 plugin version $($htmlPluginVersion) on vCenter $($vCenter.name)?"
+      if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
+      {
+        $extensionMgr.UnregisterExtension("com.purestorage.purestoragehtml")
+        write-host "Pure Storage HTML-5 plugin has been uninstalled on $($vCenter.Name)." -ForegroundColor Yellow
+      }
+    }
+    else {
+      if ($null -eq $flashPluginVersion)
+      {
+        Write-Warning -Message "The flash plugin is not currently installed in vCenter $($vCenter.name).Skipping this vCenter."
+        continue
+      }
+      $confirmText = "Uninstall flash plugin version $($flashPluginVersion) on vCenter $($vCenter.name)?"
+      if ($PSCmdlet.ShouldProcess("","$($confirmText)`n`r","Please confirm uninstall.`n`r")) 
+      {
+        $extensionMgr.UnregisterExtension("com.purestorage.plugin.vsphere")
+        write-host "Pure Storage flash plugin has been uninstalled on $($vCenter.Name)." -ForegroundColor Yellow
+      }
     }
   }
 }

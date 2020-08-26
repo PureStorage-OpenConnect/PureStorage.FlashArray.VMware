@@ -83,7 +83,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Install-PfavSpherePlugin','Get-PfavSpherePlugin','Uninstall-PfavSpherePlugin','Deploy-PfaAppliance','Get-PfaAppliance'
+	FunctionsToExport = 'Install-PfaVspherePlugin','Get-PfaVspherePlugin','Uninstall-PfaVspherePlugin','Deploy-PfaAppliance','Get-PfaAppliance'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
