@@ -1461,7 +1461,21 @@ function New-PfaRestOperation {
   .OUTPUTS
     Returns FA REST response.
   .EXAMPLE
-   
+    PS C:\ $fa = New-PfaArray -endpoint flasharray-m20-2 -credentials (get-credential) 
+    PS C:\ $volName = "newVolume"
+    PS C:\ New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $fa -jsonBody "{`"size`":`"1010010108)`"}" -SkipCertificateCheck 
+    
+    Creates a volume named newVolume and skips cert checking.
+  .EXAMPLE
+    PS C:\ $fa = New-PfaArray -endpoint flasharray-m20-2 -credentials (get-credential) 
+    PS C:\ New-PfaRestOperation -resourceType "volume" -restOperationType GET -flasharray $fa 
+    
+    Returns all volumes on target array
+  .EXAMPLE
+    PS C:\ $fa = New-PfaArray -endpoint flasharray-m20-2 -credentials (get-credential) 
+    PS C:\ New-PfaRestOperation -resourceType volume -restOperationType GET -flasharray $fa -queryFilter "?filter=serial=`'7B5ECBDC924142CC0009CB39`'"
+    
+    Returns the volume with the specified serial number.
   .NOTES
     Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
