@@ -46,7 +46,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/Cody.PureStorage.FlashArray.VMwar">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
+<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
