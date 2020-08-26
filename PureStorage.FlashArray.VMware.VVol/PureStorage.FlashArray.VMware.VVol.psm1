@@ -10,10 +10,10 @@ function Update-PfaVvolVmVolumeGroup {
     .OUTPUTS
       Returns the FlashArray volume names of the input VM.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/23/2019
-      Purpose/Change: Parameter sets and validation
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\  Update-PfaVvolVmVolumeGroup -vm (get-vm myVM)
@@ -243,8 +243,8 @@ function Get-VvolUuidFromVmdk {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ get-vm myVM | get-harddisk | Get-VvolUuidFromVmdk
@@ -372,10 +372,10 @@ function Get-PfaSnapshotFromVvolVmdk {
     .OUTPUTS
       Returns all specified snapshot names.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  12/24/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ get-vm myVM | get-harddisk | Get-PfaSnapshotFromVvolVmdk 
@@ -426,8 +426,8 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ get-vm myVM | Copy-PfaVvolVmdkToNewVvolVmdk -vmdk (get-vm sourceVM |get-harddisk)
@@ -484,8 +484,8 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ $vm = get-vm testvm01
@@ -552,8 +552,8 @@ function Copy-PfaSnapshotToNewVvolVmdk {
     .NOTES
       Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  06/04/2019
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ $vm = get-vm testvm01
@@ -635,10 +635,10 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
     .OUTPUTS
       Returns the new hard disk.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  01/02/2020
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ $disks = get-vm myVM | get-harddisk  
@@ -731,10 +731,10 @@ function New-PfaSnapshotOfVvolVmdk {
     .OUTPUTS
       Returns the snapshot name.
     .NOTES
-      Version:        2.1
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  01/02/2020
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\ $disks = get-vm prodVM | get-harddisk  
@@ -820,10 +820,10 @@ function Get-VmdkFromWindowsDisk {
     .OUTPUTS
       Returns VMDK object 
     .NOTES
-      Version:        1.0
+      Version:        2.0
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  08/24/2018
-      Purpose/Change: Updated for new connection mgmt
+      Creation Date:  08/26/2020
+      Purpose/Change: Core support
     .EXAMPLE
       PS C:\ $vm = get-vm myVM 
       PS C:\ Get-VmdkFromWindowsDisk -vm $vm -driveLetter E
@@ -962,8 +962,8 @@ function New-PfaVasaProvider {
   $vasaProviders = @()
   foreach ($faConnection in $fa) 
   {
-      $mgmtIPs = Get-PfaNetworkInterfaces -Array $faConnection | where-object {$_.name -like "*eth0"}
-      $arrayname = Get-PfaArrayAttributes -array $faConnection
+      $mgmtIPs = New-PfaRestOperation -resourceType network -restOperationType GET -flasharray $faConnection -SkipCertificateCheck |Where-Object {$_.name -like "*eth0"} 
+      $arrayname = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
       $ctnum = 0
       foreach ($mgmtIP in $mgmtIPs)
       {
@@ -1019,10 +1019,10 @@ function Get-PfaVasaProvider {
 
     Connect to a FlashArray and return the current active VASA Provider for that FlashArray.
   .NOTES
-    Version:        1.1
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  01/23/2020
-    Purpose/Change: First release
+    Creation Date:  08/26/2020
+    Purpose/Change: Core support
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -1038,7 +1038,7 @@ function Get-PfaVasaProvider {
           [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
           [PurePowerShell.PureArray]$flasharray
       )
-      $faID = "com.purestorage:" + (Get-PfaArrayAttributes -Array $flasharray).id
+      $faID = "com.purestorage:" + (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
       try {
         $vp = (Get-VasaStorageArray -Id $faid -ErrorAction Stop).provider
         return $vp
@@ -1068,10 +1068,10 @@ function Remove-PfaVasaProvider {
 
     Connect to FlashArray and then remove all VASA providers for a given FlashArray without additional confirmation prompts.
   .NOTES
-    Version:        1.0
+    Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/08/2019
-    Purpose/Change: First release
+    Creation Date:  08/26/2020
+    Purpose/Change: Core support
 
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
@@ -1200,7 +1200,7 @@ function Mount-PfaVvolDatastore {
       }
       elseif ($null -ne $flasharray) 
       {
-        $arrayID = "com.purestorage:" + (Get-PfaArrayAttributes -array $flasharray).id
+        $arrayID = "com.purestorage:" + (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
         $needToCalculateScID = $True
       }
       elseif ($null -ne $vasaArray) 
@@ -1235,7 +1235,7 @@ function Mount-PfaVvolDatastore {
         $datastoreExists = get-datastore |Where-Object {$_.Type -eq "VVol"} |Where-Object {$_.ExtensionData.Info.VVolds.Scid -eq $scId}
         if ($null -eq $datastoreExists)
         {
-          throw "This storage container ID ($($scId)) has not yet been mounted in this vCenter as a vVol datastore, so no existing name was found. Please enter a name for the vVol datastore"
+          $datastoreName = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).array_name + "-vvol-DS"
         }
         else {
           $datastoreName = $datastoreExists.Name
@@ -1283,26 +1283,19 @@ function Mount-PfaVvolDatastore {
             }
           }
           $hGroup = get-pfaHostGroupfromVcCluster -cluster $cluster -flasharray $fa -ErrorAction Stop
-          $allPEs = Get-PfaProtocolEndpointVolumes -Array $fa -ErrorAction Stop
-          if (($null -ne $protocolEndpoint) -and ($protocolEndpoint -ne ""))
+          $allPEs = New-PfaRestOperation -resourceType volume?protocol_endpoint=true -restOperationType GET -flasharray $fa -SkipCertificateCheck -ErrorAction Stop
+          if (($null -eq $protocolEndpoint) -or ($protocolEndpoint -eq ""))
           {
-              $pe = $allPEs |Where-Object {$_.name -eq $protocolEndpoint}
-              if ($null -eq $pe)
-              {
-                  throw "The Protocol Endpoint named $($protocolEndpoint) was not found."
-              }
+            $protocolEndpoint = "vVol-Protocol-Endpoint"
           }
-          else 
-          {
-            $pe = $allPEs |Where-Object {$_.name -eq "pure-protocol-endpoint"}
-          }
+          $pe = $allPEs |Where-Object {$_.name -eq $protocolEndpoint}
           if ($null -eq $pe)
           {
-            $pe = New-PfaProtocolEndpointVolume -Array $fa -VolumeName "pure-protocol-endpoint"
+            $pe =  New-PfaRestOperation -resourceType volume/$($protocolEndpoint)?protocol_endpoint=true -restOperationType POST -flasharray $fa -SkipCertificateCheck
           }
           try
           {
-            New-PfaHostGroupVolumeConnection -Array $fa -VolumeName $pe.name -HostGroupName $hGroup.name -ErrorAction Stop|Out-Null
+            New-PfaRestOperation -resourceType "hgroup/$($hGroup.name)/volume/$($pe.name)" -restOperationType POST -flasharray $fa -SkipCertificateCheck -ErrorAction Stop |Out-Null
           }
           catch
           {
