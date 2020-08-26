@@ -3,17 +3,27 @@
 <!-- /wp:heading -->
 <p><!--StartFragment--></p>
 
+<p><!--StartFragment--></p>
+
 <!-- wp:paragraph -->
 <p>To help our customers I have written a module that includes a lot of the common operations people might need to “connect” PowerCLI to our PowerShell SDK.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Latest version 1.4.2.0 (May 21st, 2020)</strong></p>
+<p><strong>Latest version 2.0.0.0 (August 26th, 2020)</strong></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
 <p>The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>New Features:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul><li>PowerShell Core support</li><li>Get-PfavVolVol Returns the volumes and volume group(s) of a given vVol VM</li><li>Multi-vCenter support for get-pfaVsphereplugin, install-pfaVspherePlugin, and uninstall-pfaVspherePlugin</li><li>Can now specify a source volume name when creating a VMFS from a snapshot instead of it being auto-generated</li><li>Can now provision VMFS volumes on ESXi 7 host</li><li>Get-PfaVspherePlugin now can return what is installed on a vCenter when -Server parameter is supplied</li><li>Issue slowing down Get-PfaVspherePlugin when a FlashArray connection exists is resolved</li></ul>
+<!-- /wp:list -->
 
 <!-- wp:paragraph -->
 <p><em>To report issues or request new features, please enter them here:</em></p>
@@ -91,8 +101,8 @@
 <p>For all available commands, use<em> get-command</em>:</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6306,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-16-1024x985.png" alt="" class="wp-image-6306"/></figure>
+<!-- wp:image {"id":6859,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/08/image-4-1024x980.png" alt="" class="wp-image-6859"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
