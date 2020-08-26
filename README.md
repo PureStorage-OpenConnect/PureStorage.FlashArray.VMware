@@ -6,7 +6,7 @@
 <p><!--StartFragment--></p>
 
 <!-- wp:paragraph -->
-<p>To help our customers I have written a module that includes a lot of the common operations people might need to “connect” PowerCLI to our PowerShell SDK.</p>
+<p>To help our customers we have written a module that includes a lot of the common operations people might need to “connect” PowerCLI to our PowerShell SDK.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -14,7 +14,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
+<p>Note that 2.0.0.0 is not yet pushed to the PowerShell gallery. Final testing is in progress. The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
