@@ -65,8 +65,8 @@
 <figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-1.png" alt="" class="wp-image-6277"/></figure>
 <!-- /wp:image -->
 
-<!-- wp:image {"id":6305,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-15-1024x370.png" alt="" class="wp-image-6305"/></figure>
+<!-- wp:image {"id":6861,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/08/image-5-1024x281.png" alt="" class="wp-image-6861"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
