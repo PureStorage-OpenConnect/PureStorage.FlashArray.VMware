@@ -1544,7 +1544,7 @@ function New-PfaRestOperation {
       }
     }
     $apiendpoint = "https://$($url)/api/$($pfaRestVersion)/" + $resourceType + $queryFilter
-    Write-Debug $apiendpoint
+    Write-debug $apiendpoint
     if ($PSVersionTable.PSEdition -eq "Core")
     {
       if ($jsonBody -ne "")

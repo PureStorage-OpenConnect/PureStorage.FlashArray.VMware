@@ -61,7 +61,10 @@ function Update-PfaVvolVmVolumeGroup {
             [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$flasharray,
+
+            [Parameter(ParameterSetName='VM',Position=3)]
+            [String]$volumeGroupName
     )
     $volumeFinalNames = @()
     if ($null -ne $datastore)
@@ -81,23 +84,6 @@ function Update-PfaVvolVmVolumeGroup {
     }
     foreach ($vm in $vms)
     {
-        $configUUID = $vm.ExtensionData.Config.VmStorageObjectId
-        if ($null -eq $configUUID)
-        {
-            write-warning -message  "The input VM $($vm.name) is not a vVol-based virtual machine. Skipping"
-            continue
-        }
-        add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-    public bool CheckValidationResult(
-        ServicePoint srvPoint, X509Certificate certificate,
-        WebRequest request, int certificateProblem) {
-        return true;
-    }
-}
-"@
         $vmDatastores = $vm |Get-Datastore
         foreach ($vmDatastore in $vmDatastores)
         {
@@ -115,62 +101,135 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
                 {
                     $fa = get-PfaConnectionOfDatastore -datastore $vmDatastore -flasharrays $flasharray -ErrorAction Stop
                 }
-                $faSession = new-PfaRestSession -flasharray $fa
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-                $volumeConfig =  Invoke-RestMethod -Method Get -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/volume?tags=true&filter=value='${configUUID}'" -WebSession $faSession -ErrorAction Stop
-                $configVVolName = ($volumeConfig |where-object {$_.key -eq "PURE_VVOL_ID"}).name
-                if ($null -eq $configVVolName)
+                $vmId = $vm.ExtensionData.Config.InstanceUuid   
+                $customVgroupName = $false
+                if ([string]::IsNullOrEmpty($volumeGroupName))
                 {
-                    write-warning -message "The VM $($vm.name) was not found on this FlashArray. Skipping."
-                    continue
-                }
-                if ($vm.Name -match "^[a-zA-Z0-9\-]+$")
-                {
-                    $vmName = $vm.Name
-                }
-                else
-                {
-                    $vmName = $vm.Name -replace "[^\w\-]", ""
-                    $vmName = $vmName -replace "[_]", ""
-                    $vmName = $vmName -replace " ", ""
-                }
-                $vGroupRand = '{0:X}' -f (get-random -Minimum 286331153 -max 4294967295)
-                $newName = "vvol-$($vmName)-$($vGroupRand)-vg"
-                if ([Regex]::Matches($configVVolName, "/").Count -eq 0)
-                {
-                    $vGroup = New-PfaVolumeGroup -Array $fa -Name $newName
+                  $volumeGroupName = $vm.Name
                 }
                 else {
-                    $vGroup = $configVVolName.split('/')[0]
-                    $vGroup = Invoke-RestMethod -Method Put -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/vgroup/${vGroup}?name=${newName}" -WebSession $faSession -ErrorAction Stop
+                  $customVgroupName = $true
                 }
-                $vmId = $vm.ExtensionData.Config.InstanceUuid
-                $volumesVmId = Invoke-RestMethod -Method Get -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vmId}'" -WebSession $faSession -ErrorAction Stop
-                $volumeNames = $volumesVmId |where-object {$_.key -eq "VMW_VmID"}
-                foreach ($volumeName in $volumeNames)
+                if ($volumeGroupName -notmatch "^[a-zA-Z0-9\-]+$")
                 {
-                    if ([Regex]::Matches($volumeName.name, "/").Count -eq 1)
-                    {
-                        if ($newName -ne $volumeName.name.split('/')[0])
-                        {
-                            $volName= $volumeName.name.split('/')[1]
-                            Add-PfaVolumeToContainer -Array $fa -Container $newName -Name $volName |Out-Null
-                        }
-                    }
-                    else {
-                        $volName= $volumeName.name
-                        Add-PfaVolumeToContainer -Array $fa -Container $newName -Name $volName |Out-Null
-                    }
+                    $volumeGroupName = $volumeGroupName -replace "[^\w\-]", ""
+                    $volumeGroupName = $volumeGroupName -replace "[_]", ""
+                    $volumeGroupName = $volumeGroupName -replace " ", ""
                 }
-                $volumesVmId = Invoke-RestMethod -Method Get -Uri "https://$($fa.Endpoint)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vmId}'" -WebSession $faSession -ErrorAction Stop
-                $volumeFinalNames += $volumesVmId |where-object {$_.key -eq "VMW_VmID"}
-                remove-PfaRestSession -flasharray $fa -faSession $faSession |Out-Null
+                if ($customVgroupName -eq $false)
+                {
+                  $vGroupRand = '{0:X}' -f (get-random -Minimum 286331153 -max 4294967295)
+                  $volumeGroupName = "vvol-$($volumeGroupName)-$($vGroupRand)-vg"
+                }
+                $vVolInfos = $null
+                $vVolInfos = Get-PfaVvolVol -vm $vm[0] -flasharray $fa
+                if (($vVolInfos.VolumeGroup |Select-Object -Unique).count -gt 1)
+                {
+                    $vgroupsUnique = $vvolInfos.VolumeGroup |Select-Object -Unique
+                    Write-Warning -Message "Skipping the VM $($VM.name) as it is spread across more than one volume group: `r`n $($vgroupsUnique) "
+                    continue
+                }
+                elseif (($vVolInfos.VolumeGroup |Select-Object -Unique).count -eq 0) 
+                {
+                  New-PfaRestOperation -resourceType "vgroup/$($volumeGroupName)" -restOperationType POST -flasharray $fa -SkipCertificateCheck -ErrorAction stop |Out-Null
+                }
+                elseif (($vVolInfos.VolumeGroup |Select-Object -Unique).count -eq 1) 
+                {
+                  if ($volumeGroupName -ne ($vVolInfos.VolumeGroup |Select-Object -Unique))
+                  {
+                    $vGroup = $vVolInfos.VolumeGroup |Select-Object -Unique
+                    New-PfaRestOperation -resourceType "vgroup/$($vGroup)" -restOperationType PUT -jsonBody "{`"name`":`"$($volumeGroupName)`"}" -flasharray $fa -SkipCertificateCheck |Out-Null
+                  }
+                }
+                $vVolInfos = $null
+                $vVolInfos = Get-PfaVvolVol -vm $vm[0]  -flasharray $fa
+                foreach ($vVolInfo in $vVolInfos) 
+                {
+                  if (($vVolInfo.VolumeGroup -ne $volumeGroupName) -and ($null -ne $vVolInfo.VolumeGroup))
+                  {
+                    New-PfaRestOperation -resourceType "volume/$($vVolInfo.VolumeGroup)/$($vVolInfo.Volume)" -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"container`":`"$($volumeGroupName)`"}" |Out-Null
+                  }
+                  elseif ($null -eq $vVolInfo.VolumeGroup) 
+                  {
+                    New-PfaRestOperation -resourceType "volume/$($vVolInfo.Volume)" -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"container`":`"$($volumeGroupName)`"}" |Out-Null
+                  }
+                }
+                $volumesAfterMove = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $fa -SkipCertificateCheck).Name |Select-Object -Unique
+                foreach ($volumeAfterMove in $volumesAfterMove) {
+                  $volumeFinalNames += $volumeAfterMove
+                }
             }
         }
     }
-    return $volumeFinalNames.name
+    return $volumeFinalNames
 }
+function Get-PfaVvolVol{
+      <#
+    .SYNOPSIS
+      Gets the vVol volumes of entered VM
+    .DESCRIPTION
+      Takes in a virtual machine
+    .INPUTS
+      Virtual machine (get-vm)
+    .OUTPUTS
+      Returns the FA volume and volume group name(s)
+    .NOTES
+      Version:        2.0
+      Author:         Cody Hosterman https://codyhosterman.com
+      Creation Date:  05/26/2019
+      Purpose/Change: Updated for new connection mgmt
+    .EXAMPLE
+      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ get-vm myVM | get-harddisk | Get-VvolUuidFromVmdk
+
+      Pass in one or more vVol hard disks and return the corresponding vVol UUIDs
+      
+    *******Disclaimer:******************************************************
+    This scripts are offered "as is" with no warranty.  While this 
+    scripts is tested and working in my environment, it is recommended that you test 
+    this script in a test lab before using in a production environment. Everyone can 
+    use the scripts/commands provided here without any written permission but I
+    will not be liable for any damage or loss to the system.
+    ************************************************************************
+    #>
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$vm,
+
+        [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
+        [PurePowerShell.PureArray]$flasharray
+    )
+    $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
+    $datastore = $vm |Get-Datastore |Where-Object {$_.Type -eq 'VVOL'} |Where-Object {$_.ExtensionData.Info.VvolDS.StorageArray[0].uuid.Substring(16) -eq $arraySerial}
+    if ($null -eq $datastore)
+    {
+      throw "There are no volumes on this FlashArray $($flasharray.EndPoint) for entered VM $($vm.name)"
+    }
+    else 
+    {
+      $vmId = $vm.ExtensionData.Config.InstanceUuid   
+      $vVolVolumes = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $flasharray -SkipCertificateCheck).Name |Select-Object -Unique
+      $vVolInfos = @() 
+      foreach ($vVolVolume in $vVolVolumes) 
+      {
+        $vVolInfo = New-Object -TypeName psobject 
+        if (($vVolVolume.split("/")).count -gt 1)
+        {
+          $vVolInfo | Add-Member -MemberType NoteProperty -Name VolumeGroup -Value ($vVolVolume.split("/"))[0]
+          $vVolInfo | Add-Member -MemberType NoteProperty -Name Volume -Value ($vVolVolume.split("/"))[1]
+        }
+        else {
+          $vVolInfo | Add-Member -MemberType NoteProperty -Name VolumeGroup -Value $null
+          $vVolInfo | Add-Member -MemberType NoteProperty -Name Volume -Value $vVolVolume
+        }
+        $vVolInfos += $vVolInfo
+      }
+    }
+    return $vVolInfos
+  }
+
 function Get-VvolUuidFromVmdk {
     <#
     .SYNOPSIS

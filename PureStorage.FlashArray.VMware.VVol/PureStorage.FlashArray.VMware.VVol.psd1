@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.vVol.psd1
-	 Version:		1.4.0.2
+	 Version:		2.0.0.0
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwarevVolPowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.vVol.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.4.0.2'
+	ModuleVersion = '2.0.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '105e97db-98b4-41be-be35-17ba25a1ede5'
@@ -47,7 +47,7 @@
 	Description = 'Pure Storage FlashArray VMware PowerShell vVol management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
-	PowerShellVersion = '5.0'
+	PowerShellVersion = '5.1'
 	
 	# Name of the Windows PowerShell host required by this module
 	PowerShellHostName = ''
@@ -82,7 +82,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromVmdk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotFromVvolVmdk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore','Initialize-PfaVVols'
+	FunctionsToExport = 'Get-PfaVvolVol','Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromVmdk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotFromVvolVmdk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore','Initialize-PfaVVols'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
