@@ -82,7 +82,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Get-PfaVvolVol','Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromVmdk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotFromVvolVmdk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore','Initialize-PfaVVols'
+	FunctionsToExport = 'Get-PfaVvolVol','Update-PfaVvolVmVolumeGroup','Get-VvolUuidFromVmdk','Get-PfaVolumeNameFromVvolUuid','Get-PfaSnapshotFromVvolVmdk','Copy-PfaVvolVmdkToNewVvolVmdk','Copy-PfaSnapshotToExistingVvolVmdk','Copy-PfaSnapshotToNewVvolVmdk','Copy-PfaVvolVmdkToExistingVvolVmdk','New-PfaSnapshotOfVvolVmdk','Get-VmdkFromWindowsDisk','New-PfaVasaProvider','Get-PfaVasaProvider','Remove-PfaVasaProvider','Mount-PfaVvolDatastore'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'

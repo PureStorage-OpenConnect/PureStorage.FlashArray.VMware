@@ -179,10 +179,10 @@ function Get-PfaVvolVol{
       Creation Date:  05/26/2019
       Purpose/Change: Updated for new connection mgmt
     .EXAMPLE
-      PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
-      PS C:\ get-vm myVM | get-harddisk | Get-VvolUuidFromVmdk
+      PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
+      PS C:\ Get-PfaVvolVol -vm (get-vm myVM) -flasharray $fa
 
-      Pass in one or more vVol hard disks and return the corresponding vVol UUIDs
+      Returns the relevant vVol volumes on the array and their corresponding volume group
       
     *******Disclaimer:******************************************************
     This scripts are offered "as is" with no warranty.  While this 
@@ -338,28 +338,8 @@ function Get-PfaVolumeNameFromVvolUuid{
       }
       foreach ($fa in $flasharray)
       {
-          $faSession = new-PfaRestSession -flasharray $fa 
-          $purevip = $fa.EndPoint
-          #Pull tags that match the volume with that UUID
-          try {
-              add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-  public bool CheckValidationResult(
-      ServicePoint srvPoint, X509Certificate certificate,
-      WebRequest request, int certificateProblem) {
-      return true;
-  }
-}
-"@
-          }
-          Catch {}
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-          $volumeTags = Invoke-RestMethod -Method Get -Uri "https://$($purevip)/api/$($fa.apiversion)/volume?tags=true&filter=value='${vvolUUID}'" -WebSession $faSession -ErrorAction Stop
+          $volumeTags = New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vvolUUID)`'" -flasharray $fa -SkipCertificateCheck
           $volumeName = $volumeTags |where-object {$_.key -eq "PURE_VVOL_ID"}
-          remove-PfaRestSession -faSession $faSession -flasharray $fa
           if ($null -eq $volumeName)
           {
             $Global:CurrentFlashArray = $null
@@ -428,17 +408,10 @@ function Get-PfaSnapshotFromVvolVmdk {
     {
         $fa = get-PfaConnectionOfDatastore -datastore $datastore -flasharrays $flasharray -ErrorAction Stop
     }
-    $faSession = new-PfaRestSession -flasharray $fa 
-    $purevip = $fa.EndPoint
     $vvolUuid = Get-VvolUuidFromVmdk -vmdk $vmdk
-    $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
-    $volumeSnaps = Invoke-RestMethod -Method Get -Uri "https://${purevip}/api/$($fa.apiversion)/volume/${faVolume}?snap=true" -WebSession $faSession -ErrorAction Stop
-    $snapNames = @()
-    foreach ($volumeSnap in $volumeSnaps)
-    {
-        $snapNames += $volumeSnap.name 
-    }
-    return $snapNames
+    $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
+    $volumeSnaps = New-PfaRestOperation -resourceType "volume/$($faVolume)" -restOperationType GET -queryFilter "?snap=true" -flasharray $fa -SkipCertificateCheck
+    return $volumeSnaps.Name
 }
 function Copy-PfaVvolVmdkToNewVvolVmdk {
     <#
@@ -495,7 +468,7 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityGB $vmdk.CapacityGB -VM $targetVm 
     $newVvolUuid = get-vvolUuidFromVmdk -vmdk $newHardDisk 
     $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid 
-    New-PfaVolume -Array $fa -Source $faVolume -Overwrite -VolumeName $newFaVolume  |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($newFaVolume)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($faVolume)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
     return $newHardDisk
 }
 function Copy-PfaSnapshotToExistingVvolVmdk {
@@ -551,25 +524,20 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
     }
     $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdk 
     $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
-    $foundSnap = Get-PfaVolumeSnapshot -Array $fa -SnapshotName $snapshotName
-    if ($null -eq $foundSnap)
+    $snapshotSize = New-PfaRestOperation -resourceType "volume/$($snapshotName)" -restOperationType GET -queryFilter "?snap=true&space=true" -flasharray $fa -SkipCertificateCheck
+    if ($vmdk.ExtensionData.capacityinBytes -ne $snapshotSize.size)
     {
-        throw "The snapshot either does not exist, or is not on the same array as the target vVol."
-    }
-    $snapshotSize = Get-PfaSnapshotSpaceMetrics -Array $fa -Name $snapshotName
-    if ($vmdk.ExtensionData.capacityinBytes -eq $snapshotSize.size)
-    {
-        New-PfaVolume -Array $fa -Source $snapshotName -Overwrite -VolumeName $faVolume  |Out-Null
-    }
-    elseif ($vmdk.ExtensionData.capacityinBytes -lt $snapshotSize.size) {
+      if ($vmdk.ExtensionData.capacityinBytes -lt $snapshotSize.size) 
+      {
         $vmdk = Set-HardDisk -HardDisk $vmdk -CapacityKB ($snapshotSize.size / 1024) -Confirm:$false 
-        $vmdk = New-PfaVolume -Array $fa -Source $snapshotName -Overwrite -VolumeName $faVolume 
-        
+      }
+      else 
+      {
+          throw "The target vVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
+      } 
     }
-    else {
-        throw "The target vVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
-    } 
-    return $vmdk    
+    New-PfaRestOperation -resourceType "volume/$($faVolume)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($snapshotName)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
+    return ($datastore |Get-HardDisk |Where-Object {$_.FileName -eq $vmdk.Filename})
 }
 function Copy-PfaSnapshotToNewVvolVmdk {
     <#
@@ -641,19 +609,19 @@ function Copy-PfaSnapshotToNewVvolVmdk {
         catch {
           throw "You must either pass in a FlashArray, a vVol datastore, or configure a default FlashArray connection."
         }
-        $arrayID = (Get-PfaArrayAttributes -Array $flasharray).id
+        $arrayID = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
         $datastore = $targetVm| Get-VMHost | Get-Datastore |where-object {$_.Type -eq "VVOL"} |Where-Object {$_.ExtensionData.info.vvolDS.storageArray[0].uuid.substring(16) -eq $arrayID} |Select-Object -First 1
     }
     elseif (($null -ne $flasharray) -and ($null -eq $datastore))
     {
-      $arrayID = (Get-PfaArrayAttributes -Array $flasharray).id
+      $arrayID = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
       $datastore = $targetVm| Get-VMHost | Get-Datastore |where-object {$_.Type -eq "VVOL"} |Where-Object {$_.ExtensionData.info.vvolDS.storageArray[0].uuid.substring(16) -eq $arrayID} |Select-Object -First 1
     }
-    $snapshotSize = Get-PfaSnapshotSpaceMetrics -Array $flasharray -Name $snapshotName -ErrorAction Stop
+    $snapshotSize = New-PfaRestOperation -resourceType "volume/$($snapshotName)" -restOperationType GET -queryFilter "?snap=true&space=true" -flasharray $flasharray -SkipCertificateCheck
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityKB ($snapshotSize.size / 1024 ) -VM $targetVm 
     $newVvolUuid = get-vvolUuidFromHardDisk -vmdk $newHardDisk 
     $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $flasharray -vvolUUID $newVvolUuid 
-    New-PfaVolume -Array $flasharray -Source $snapshotName -Overwrite -VolumeName $newFaVolume  |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($newFaVolume)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"overwrite`":true,`"source`":`"$($snapshotName)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
     return $newHardDisk      
 }
 function Copy-PfaVvolVmdkToExistingVvolVmdk {
@@ -735,17 +703,17 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
         $sourceFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid 
         $vvolUuid = get-vvolUuidFromHardDisk -vmdk $targetVmdk 
         $targetFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $targetFlasharray -vvolUUID $vvolUuid
-        if ($targetVmdk.CapacityKB -eq $sourceVmdk.CapacityKB)
+        if ($targetVmdk.CapacityKB -ne $sourceVmdk.CapacityKB)
         {
-            New-PfaVolume -Array $targetFlasharray -Source $sourceFaVolume -Overwrite -VolumeName $targetFaVolume |Out-Null
-        }
-        elseif ($targetVmdk.CapacityKB -lt $sourceVmdk.CapacityKB) {
+          if ($targetVmdk.CapacityKB -lt $sourceVmdk.CapacityKB) 
+          {
             $targetVmdk = Set-HardDisk -HardDisk $targetVmdk -CapacityKB $sourceVmdk.CapacityKB -Confirm:$false 
-            New-PfaVolume -Array $targetFlasharray -Source $sourceFaVolume -Overwrite -VolumeName $targetFaVolume  |Out-Null     
-        }
-        else {
+          }
+          else {
             throw "The target VVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
+          }
         }
+        New-PfaRestOperation -resourceType "volume/$($targetFaVolume)" -restOperationType POST -flasharray $targetFlasharray -jsonBody "{`"overwrite`":true,`"source`":`"$($sourceFaVolume)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Nul
     }
     else {
         throw "The source VVol VMDK and target VVol VMDK are not on the same array."
@@ -828,10 +796,10 @@ function New-PfaSnapshotOfVvolVmdk {
           $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid -ErrorAction Stop
           if (($null -eq $suffix) -or ($suffix -eq ""))
           {
-              $snapshot = New-PfaVolumeSnapshots -Array $fa -Sources $faVolume -ErrorAction Stop
+            $snapshot = New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($faVolume)`"],`"suffix`":`"$($suffix)`"}" -SkipCertificateCheck -ErrorAction Stop
           }
           else {
-              $snapshot = New-PfaVolumeSnapshots -Array $fa -Sources $faVolume -Suffix $suffix -ErrorAction Stop
+            $snapshot = New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($faVolume)`"]}" -SkipCertificateCheck -ErrorAction Stop
           }
           $allSnaps += $snapshot
           $Global:CurrentFlashArray = $fa
@@ -973,11 +941,6 @@ function New-PfaVasaProvider {
           [Parameter(ParameterSetName='AllFlashArrays',Position=2,mandatory=$true)]
           [switch]$allFlashArrays
   )
-  $powerCLIVersionCheck = (Get-Module -name VMware.PowerCLI -ListAvailable).Version |Where-Object {($_.Major -ge 11) -and ($_.Minor -ge 3)}
-  if ($null -eq $powerCLIVersionCheck)
-  {
-      throw "You must be running PowerCLI 11.3.0 or later for this cmdlet to work. Please run update-module VMware.PowerCLI or update manually."
-  }
   if ($null -eq $flasharray)
   {
       if ($allFlashArrays -ne $True)
@@ -1400,167 +1363,7 @@ function Mount-PfaVvolDatastore {
       }
       return $datastore
 }
-function Initialize-PfaVVols {
-  <#
-  .SYNOPSIS
-    Configures a VMware environment from scratch for Pure Storage FlashArray VVols.
-  .DESCRIPTION
-    Configures iSCSI, host groups, registers VASA, installs the vSphere Plugin, mounts VVol datastore to specified cluster
-  .INPUTS
-    FlashArray FQDN/IP and credentials, a vCenter cluster or clusters
-  .OUTPUTS
-    Returns the VVol datastore
-  .EXAMPLE
-    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
-    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -allClusters 
 
-    Description. Configures VVols for a FlashArray for all clusters in a vCenter.
-  .EXAMPLE
-    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
-    PS C:\ $cluster = get-cluster myCluster
-    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -cluster $cluster
-
-    Description. Configures VVols for a FlashArray for the cluster called myCluster in a vCenter.
-  .EXAMPLE
-    PS C:\ Connect-ViServer -Server myvCenter.purestorage.com
-    PS C:\ Initialize-PfaVVols -flasharray myFlashArray.purestorage.com -allClusters -iscsi
-
-    Description. Configures VVols for a FlashArray for all clusters in a vCenter and specifies iSCSI as the connection protocol.
-  .NOTES
-    Version:        1.0
-    Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  07/25/2019
-    Purpose/Change: First release
-
-  *******Disclaimer:******************************************************
-  This scripts are offered "as is" with no warranty.  While this 
-  scripts is tested and working in my environment, it is recommended that you test 
-  this script in a test lab before using in a production environment. Everyone can 
-  use the scripts/commands provided here without any written permission but I
-  will not be liable for any damage or loss to the system.
-  ************************************************************************
-  #>
-
-  [CmdletBinding()]
-  Param(
-          [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
-          [string]$flasharray,
-
-          [Parameter(Position=1,ValueFromPipeline=$True)]
-          [System.Management.Automation.PSCredential]$credentials,
-
-          [Parameter(Position=2,ValueFromPipeline=$True)]
-          [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster[]]$cluster,
-
-          [Parameter(Position=3,ValueFromPipeline=$True)]
-          [switch]$allClusters,
-
-          [Parameter(Position=4)]
-          [switch]$iscsi,
-  
-          [Parameter(Position=5)]
-          [switch]$fc,
-
-          [Parameter(Position=6)]
-          [string]$datastoreName
-  )
-  if ($null -eq $global:defaultviserver)
-  {
-    $vcenter = Read-Host "Please enter in a vCenter server address"
-    Connect-VIServer -Server $vcenter
-  }
-  if (($iscsi -eq $true) -and ($fc -eq $true))
-  {
-      throw "Please only specify iSCSI or FC or neither. If neither is specified the cmdlet will query the array for protocol support."
-  }
-  if (($null -ne $cluster) -and ($allClusters -eq $true))
-  {
-      throw "Please either only pass in specific clusters OR use the -allClusters parameter. Not both."
-  }
-  if (($null -eq $cluster) -and ($allClusters -eq $false))
-  {
-    $clusterName = Read-Host "Please enter a cluster name to mount the VVol datastore"
-    $cluster = Get-Cluster $clusterName -ErrorAction Stop
-  }
-  if ($allClusters -eq $True)
-  {
-    $cluster = Get-Cluster
-  }
-  if ($null -eq $credentials)
-  {
-    $credentials = Get-Credential -Message "Please enter in FlashArray administrative credentials"
-  }
-  Write-Progress -Activity "Connecting to FlashArray" -status "Connecting..." -percentComplete 0
-  $fa = New-PfaArray -EndPoint $flasharray -Credentials $credentials -IgnoreCertificateError -ErrorAction Stop
-  if (($iscsi -eq $false) -and ($fc -eq $false))
-  {
-      $foundFC = $null
-      $foundFC = Get-PfaAllHardwareAttributes -Array $fa |Where-Object {$_.name -like "*FC*"}
-      if ($null -eq $foundFC)
-      {
-          $iscsi = $True
-      }
-      else 
-      {
-          $fc = $True
-      }
-  }
-  Write-Progress -Activity "Connecting to FlashArray" -status "Connected." -percentComplete 20
-  if ($fc -eq $true)
-  {
-    write-warning "Fibre Channel is the selected protocol. This script does not configure zoning, so ensure that this is completed."
-  }
-  $percentComplete = (21 - (20/$cluster.count))
-  foreach ($workingCluster in $cluster)
-  {
-      Write-Progress -Activity "Creating host group(s)" -status $workingCluster.name -percentComplete ($percentComplete + (20/$cluster.count))
-      new-pfaHostGroupfromVcCluster -cluster $workingCluster -iscsi:$iscsi -fc:$fc -flasharray $fa -ErrorAction Stop |Out-Null
-      $percentComplete = $percentComplete + (20/$cluster.count)
-  }
-  Write-Progress -Activity "Creating host group(s)" -status "Created." -percentComplete 40
-  #vSphere Plugin installation
-  Write-Progress -Activity "Installing vSphere Plugin" -status "Installing..." -percentComplete 41
-  try 
-  {
-    $pureplugins = get-pfavsphereplugin -source Pure1 -html
-    if ($null -eq $pureplugins)
-    {
-      install-pfavSpherePlugin -flasharray $fa -ErrorAction stop -Confirm:$false|Out-Null
-    }
-    else 
-    {
-      install-pfavSpherePlugin -source "Pure1" -html -ErrorAction stop -Confirm:$false|Out-Null
-    }
-    Write-Progress -Activity "Installing vSphere Plugin" -status "Installed." -percentComplete 60
-  }
-  catch 
-  {
-      Write-Warning $_
-  }
-
-  #Register VASA
-  Write-Progress -Activity "Registering VASA Providers" -status "Registering..." -percentComplete 61
-  New-PfaVasaProvider -flasharray $fa -credentials $credentials |Out-Null
-  Write-Progress -Activity "Registering VASA Providers" -status "Registered." -percentComplete 80
-  Write-Progress -Activity "Mounting VVol Datastore" -status "Mounting..." -percentComplete 81
-  if ($datastoreName -eq "")
-  {
-      $datastoreName = ((Get-PfaArrayAttributes -Array $fa).array_name + "-VVolDS" )
-  }
-  $percentComplete = (81 - (20/$cluster.count))
-  foreach ($workingCluster in $cluster)
-  {
-    Write-Progress -Activity "Mounting VVol Datastore" -status "Mounting on cluster $($workingCluster.Name)..." -percentComplete ($percentComplete + (20/$cluster.count))
-    $datastore = Mount-PfaVvolDatastore -flasharray $fa -cluster $workingCluster -datastoreName $datastoreName 
-    $percentComplete = $percentComplete + (20/$cluster.count)
-    if (($percentComplete + (20/$cluster.count)) -ge 100)
-    {
-      $percentComplete = 99 - (20/$cluster.count)
-    }
-  }
-  Write-Progress -Activity "Mounting VVol Datastore" -status "Mounted on cluster(s)." -percentComplete 100
-  return $datastore
-}
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
     {
