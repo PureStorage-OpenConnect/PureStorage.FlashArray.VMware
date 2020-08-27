@@ -6,7 +6,7 @@
 <p><!--StartFragment--></p>
 
 <!-- wp:paragraph -->
-<p>To help our customers I have written a module that includes a lot of the common operations people might need to “connect” PowerCLI to our PowerShell SDK.</p>
+<p>To help our customers we have written a module that includes a lot of the common operations people might need to “connect” PowerCLI to our PowerShell SDK.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -14,7 +14,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
+<p>Note that 2.0.0.0 is not yet pushed to the PowerShell gallery. Final testing is in progress. The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -22,7 +22,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
-<ul><li>PowerShell Core support</li><li>Get-PfavVolVol Returns the volumes and volume group(s) of a given vVol VM</li><li>Multi-vCenter support for get-pfaVsphereplugin, install-pfaVspherePlugin, and uninstall-pfaVspherePlugin</li><li>Can now specify a source volume name when creating a VMFS from a snapshot instead of it being auto-generated</li><li>Can now provision VMFS volumes on ESXi 7 host</li><li>Get-PfaVspherePlugin now can return what is installed on a vCenter when -Server parameter is supplied</li><li>Issue slowing down Get-PfaVspherePlugin when a FlashArray connection exists is resolved</li><li>New-PfaRestOperation is a new command for running REST API operations against a flasharray</li></ul>
+<ul><li>PowerShell Core support</li><li>Get-PfavVolVol Returns the volumes and volume group(s) of a given vVol VM</li><li>Multi-vCenter support for get-pfaVsphereplugin, install-pfaVspherePlugin, and uninstall-pfaVspherePlugin</li><li>Can now specify a source volume name when creating a VMFS from a snapshot instead of it being auto-generated</li><li>Can now provision VMFS volumes on ESXi 7 host</li><li>Get-PfaVspherePlugin now can return what is installed on a vCenter when -Server parameter is supplied</li><li>Issue slowing down Get-PfaVspherePlugin when a FlashArray connection exists is resolved</li><li>New-PfaRestOperation is a new command for running REST API operations against a flasharray</li><li>Added parameter to Update-PfavVolVMVolumeGroup of -volumeGroupName for specifying a custom vgroup name instead of using the default naming scheme</li></ul>
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
@@ -46,7 +46,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/Cody.PureStorage.FlashArray.VMwar">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
+<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
