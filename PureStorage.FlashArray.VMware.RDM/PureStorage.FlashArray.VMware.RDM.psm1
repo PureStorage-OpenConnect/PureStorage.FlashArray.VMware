@@ -80,8 +80,16 @@ function New-PfaRDM {
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.ScsiController]$scsiController,
 
             [Parameter(ParameterSetName='Snapshot',Position=7)]
+            [string]$snapshot,
+
+            [Parameter(ParameterSetName='Snapshot',Position=7)]
             [string]$snapshotName
     )
+    if (![string]::IsNullOrWhiteSpace($snapshotName))
+    {
+        Write-Warning -Message "The parameter `$snapshotName is deprecated. Please use `$snapshot instead"
+        $snapshot = $snapshotName
+    }
     $warningpreference = "SilentlyContinue"
     if ($null -eq $flasharray)
     {
@@ -130,9 +138,9 @@ function New-PfaRDM {
         throw "This VM is not on a host in a cluster. Non-clustered hosts are not supported by this script."     
     }
     $hostGroup = $cluster | get-pfaHostGroupfromVcCluster -flasharray $flasharray -ErrorAction Stop
-    if ($snapshotName -ne "")
+    if (![string]::IsNullOrWhiteSpace($snapshot))
     {
-        $newVol = New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"source`":`"$($snapshotName)`"}" -SkipCertificateCheck -ErrorAction Stop
+        $newVol = New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"source`":`"$($snapshot)`"}" -SkipCertificateCheck -ErrorAction Stop
     }
     else {
         $newVol = New-PfaRestOperation -resourceType "volume/$($volName)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"size`":`"$($volSize)`"}" -SkipCertificateCheck -ErrorAction Stop
@@ -480,7 +488,7 @@ function Get-PfaRDMSnapshot {
             })]
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
-            [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
+            [Parameter(Position=1,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray[]]$flasharray
     )
       if ($null -eq $flasharray)
@@ -571,6 +579,11 @@ function Copy-PfaSnapshotToRDM {
         $vm = $rdm.Parent
         $controller = $rdm |Get-ScsiController
         $datastore = $rdm |Get-Datastore
+        $foundSnap = New-PfaRestOperation -resourceType "volume/$($snapshot)?snap=true" -restOperationType GET -flasharray $fa -SkipCertificateCheck -ErrorAction SilentlyContinue
+        if ([string]::IsNullOrWhiteSpace($foundSnap))
+        {
+          throw "Entered snapshot $($snapshot) is not found on FlashArray $($fa.endpoint). Please confirm snapshot name and retry. This requires the full name, not just a snapshot suffix."
+        }
         Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
         $refreshedVol = New-PfaRestOperation -resourceType "volume/$($sourceVol.name)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($snapshot)`"}" -SkipCertificateCheck -ErrorAction Stop
         $esxiHosts = $rdm.Parent | Get-VMHost 
@@ -678,7 +691,7 @@ function Set-PfaRDMCapacity {
       $flasharray = getAllFlashArrays 
     }
     $fa = get-pfaConnectionfromRDM -rdm $rdm -flasharray $flasharray -ErrorAction Stop
-    $pureVol = $rdm | Get-PfaRDMVol -flasharray $flasharray 
+    $pureVol = $rdm | Get-PfaRDMVol -flasharray $fa 
     if (($truncate -ne $true) -and ($pureVol.size -gt $volSize))
     {
         throw "This operation will shrink the target RDM--please ensure this is expected and if so, please rerun the operation with the -truncate parameter."
@@ -686,13 +699,13 @@ function Set-PfaRDMCapacity {
     $vm = $rdm.Parent
     $controller = $rdm |Get-ScsiController
     $datastore = $rdm |Get-Datastore
-    Remove-HardDisk $rdm -DeletePermanently -Confirm:$false
+    Remove-HardDisk $rdm -DeletePermanently -Confirm:$false -ErrorAction Stop
     if ($truncate -eq $true)
     {
-      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $flasharray -jsonBody "{`"truncate`":true,`"size`":$($volSize)}" -SkipCertificateCheck 
+      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"truncate`":true,`"size`":$($volSize)}" -SkipCertificateCheck 
     }
     else {
-      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $flasharray -jsonBody "{`"size`":$($volSize)}" -SkipCertificateCheck 
+      $expandedVol = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"size`":$($volSize)}" -SkipCertificateCheck 
     }
     $esxiHosts = $rdm.Parent| Get-VMHost 
     foreach ($esxiHost in $esxiHosts)
@@ -705,7 +718,7 @@ function Set-PfaRDMCapacity {
         }
         $storageSystem.RefreshStorageSystem()
     }
-    $expandedVol = New-PfaRestOperation -resourceType "volume/$($expandedVol.name)" -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
+    $expandedVol = New-PfaRestOperation -resourceType "volume/$($expandedVol.name)" -restOperationType GET -flasharray $fa -SkipCertificateCheck
     $newNAA =  "naa.624a9370" + $expandedVol.serial.toLower()
     $vm | new-harddisk -DeviceName "/vmfs/devices/disks/$($newNAA)" -DiskType RawPhysical -Controller $controller -Datastore $datastore -ErrorAction stop |Out-Null
     $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
@@ -880,7 +893,7 @@ function Convert-PfaRDMToVvol {
     }
     $fa = get-pfaConnectionfromRDM -flasharray $flasharray -rdm $rdm -ErrorAction Stop
     $sourceVol = $rdm| Get-PfaRDMVol -flasharray $fa -ErrorAction Stop
-    $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
+    $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck).id
     if ($null -eq $datastore)
     {
         $datastores = $vm |get-vmhost |Get-Datastore |Where-Object {$_.Type -eq "VVOL"}
@@ -911,8 +924,8 @@ function Convert-PfaRDMToVvol {
     $vvolUuid = $vvolVmdk |get-vvolUuidFromHardDisk
     $targetVol = get-pfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid
     New-PfaRestOperation -resourceType "volume/$($sourceVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"action`":`"recover`"}" -SkipCertificateCheck |Out-Null
-    New-PfaRestOperation -resourceType "volume/$($targetVol)" -restOperationType POST -flasharray $fa -jsonBody "{`"source`":`"$($sourceVol.name)`"}" -SkipCertificateCheck -ErrorAction Stop
-    New-PfaRestOperation -resourceType "volume/$($sourceVol.nam)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($targetVol)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($sourceVol.name)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
+    New-PfaRestOperation -resourceType "volume/$($sourceVol.name)" -restOperationType DELETE -flasharray $fa -SkipCertificateCheck |Out-Null
     return $vvolVmdk
 }
 function checkDefaultFlashArray{
