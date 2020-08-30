@@ -444,7 +444,7 @@ function Set-PfaVmfsCapacity {
     $pureVol = $datastore | get-pfaVolfromVMFS -flasharray $fa -ErrorAction Stop
     if ($volSize -le $pureVol.size)
     {
-        throw "The new size cannot be smaller than the existing size. VMFS volumes cannot be shrunk."
+        throw "The new specified size, $($volsize/1024/1024/1024) GB, is smaller than the current size, $($pureVol.size/1024/1024/1024) GB. ESXi does not permit VMFS volumes to be shrunk--please specify a size larger than the existing."
     }
     New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType PUT -flasharray $fa -jsonBody "{`"size`":$($volSize)}" -SkipCertificateCheck |Out-Null
     $Global:CurrentFlashArray = $fa
