@@ -82,7 +82,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Convert-PfaRDMToVvol','Remove-PfaRDM','Set-PfaRDMCapacity','Copy-PfaSnapshotToRDM','Get-PfaRDMSnapshot','New-PfaRDMSnapshot','Get-PfaConnectionFromRDM','Get-PfaRDMVol','New-PfaRDM'
+	FunctionsToExport = 'Convert-PfaRdmToVvol','Remove-PfaRdm','Set-PfaRdmCapacity','Copy-PfaSnapshotToRdm','Get-PfaRdmSnapshot','New-PfaRdmSnapshot','Get-PfaConnectionFromRdm','Get-PfaRdmVol','New-PfaRdm'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'

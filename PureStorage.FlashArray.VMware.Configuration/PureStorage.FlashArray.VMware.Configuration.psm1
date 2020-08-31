@@ -43,19 +43,19 @@ function New-PfaConnection {
   Param(
 
       [Parameter(Position=0,mandatory=$true)]
-      [string]$endpoint,
+      [string]$Endpoint,
 
       [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
-      [System.Management.Automation.PSCredential]$credentials,
+      [System.Management.Automation.PSCredential]$Credentials,
 
       [Parameter(ParameterSetName='Primary',Mandatory = $true)]
-      [switch]$defaultArray,
+      [switch]$DefaultArray,
 
       [Parameter(ParameterSetName='Non-Primary',Mandatory = $true)]
-      [switch]$nonDefaultArray,
+      [switch]$NonDefaultArray,
 
       [Parameter(Position=3)]
-      [switch]$ignoreCertificateError
+      [switch]$IgnoreCertificateError
   )
   Begin {
       $ErrorActionPreference = "stop"
@@ -134,23 +134,23 @@ function Get-PfaDatastore {
       [Parameter(ParameterSetName='Cluster',Position=0,ValueFromPipeline=$True)]
       [Parameter(ParameterSetName='Host',Position=0,ValueFromPipeline=$True)]
       [Parameter(ParameterSetName='All',Position=0,ValueFromPipeline=$True)]
-      [PurePowerShell.PureArray]$flasharray,
+      [PurePowerShell.PureArray]$Flasharray,
     
       [Parameter(ParameterSetName='Cluster',Position=1)]
       [Parameter(ParameterSetName='Host',Position=1)]
       [Parameter(ParameterSetName='All',Position=1)]
-      [switch]$vvol,
+      [switch]$Vvol,
 
       [Parameter(ParameterSetName='Cluster',Position=2)]
       [Parameter(ParameterSetName='Host',Position=2)]
       [Parameter(ParameterSetName='All',Position=2)]
-      [switch]$vmfs,
+      [switch]$Vmfs,
 
       [Parameter(ParameterSetName='Cluster',ValueFromPipeline=$True)]
-      [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
       
       [Parameter(ParameterSetName='Host',ValueFromPipeline=$True)]
-      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$Esxi
   )
   if ($null -ne $esxi)
   {
@@ -241,7 +241,7 @@ will not be liable for any damage or loss to the system.
 Param(
 
   [Parameter(Position=0,ValueFromPipeline=$True)]
-  [PurePowerShell.PureArray[]]$flasharrays,
+  [PurePowerShell.PureArray[]]$Flasharrays,
 
   [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
   [ValidateScript({
@@ -253,7 +253,7 @@ Param(
       $true
     }
   })]
-  [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
+  [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore
 )
   if ($null -eq $flasharrays)
   {
@@ -336,10 +336,10 @@ function Get-PfaConnectionFromArrayId {
   [CmdletBinding()]
   Param(
       [Parameter(Position=0,ValueFromPipeline=$True)]
-      [PurePowerShell.PureArray[]]$flasharrays,
+      [PurePowerShell.PureArray[]]$Flasharrays,
 
       [Parameter(Position=1,mandatory=$true)]
-      [string]$arrayId
+      [string]$ArrayId
   )
   if ($null -eq $flasharrays)
   {
@@ -387,7 +387,7 @@ function New-PfaRestSession {
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray]$flasharray
+        [PurePowerShell.PureArray]$Flasharray
     )
     #Connect to FlashArray
     if ($null -eq $flasharray)
@@ -454,10 +454,10 @@ function Remove-PfaRestSession {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
-            [Microsoft.PowerShell.Commands.WebRequestSession]$faSession,
+            [Microsoft.PowerShell.Commands.WebRequestSession]$FaSession,
 
             [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
-            [PurePowerShell.PureArray]$flasharray
+            [PurePowerShell.PureArray]$Flasharray
     )
       if ($null -eq $flasharray)
       {
@@ -537,17 +537,17 @@ function New-PfaHostFromVmHost {
     Param(
             [Parameter(ParameterSetName='iSCSI',Position=0,mandatory=$true)]
             [Parameter(ParameterSetName='FC',Position=0,mandatory=$true)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$Esxi,
 
             [Parameter(ParameterSetName='iSCSI',Position=1,ValueFromPipeline=$True)]
             [Parameter(ParameterSetName='FC',Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
-            [switch]$iscsi,
+            [switch]$Iscsi,
 
             [Parameter(ParameterSetName='FC',mandatory=$true)]
-            [switch]$fc
+            [switch]$Fc
     )
     Begin {
       $vmHosts = @()
@@ -700,10 +700,10 @@ function Get-PfaHostFromVmHost {
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,mandatory=$true,ValueFromPipeline=$True)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$Esxi,
 
         [Parameter(Position=1,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray]$flasharray
+        [PurePowerShell.PureArray]$Flasharray
     )
     if ($null -eq $flasharray)
     {
@@ -804,10 +804,10 @@ function Get-PfaHostGroupfromVcCluster {
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,mandatory=$true,ValueFromPipeline=$True)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
         [Parameter(Position=1,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray]$flasharray
+        [PurePowerShell.PureArray]$Flasharray
     )
     if ($null -eq $flasharray)
     {
@@ -897,17 +897,17 @@ function New-PfaHostGroupfromVcCluster {
     Param(
         [Parameter(ParameterSetName='iSCSI',Position=0,mandatory=$true)]
         [Parameter(ParameterSetName='FC',Position=0,mandatory=$true)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
         [Parameter(ParameterSetName='iSCSI',Position=1,ValueFromPipeline=$True)]
         [Parameter(ParameterSetName='FC',Position=1,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray[]]$flasharray,
+        [PurePowerShell.PureArray[]]$Flasharray,
 
         [Parameter(ParameterSetName='iSCSI',mandatory=$true)]
-        [switch]$iscsi,
+        [switch]$Iscsi,
 
         [Parameter(ParameterSetName='FC',mandatory=$true)]
-        [switch]$fc
+        [switch]$Fc
     )
     Begin {
        $pfaHostGroups = @()
@@ -1099,10 +1099,10 @@ function Set-VmHostPfaiSCSI{
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,mandatory=$true)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$esxi,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$Esxi,
 
         [Parameter(Position=1,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray[]]$flasharray
+        [PurePowerShell.PureArray[]]$Flasharray
     )
     Begin {
       $allESXitargets = @()
@@ -1220,10 +1220,10 @@ function Set-ClusterPfaiSCSI {
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,mandatory=$true)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
         [Parameter(Position=1,ValueFromPipeline=$True)]
-        [PurePowerShell.PureArray[]]$flasharray
+        [PurePowerShell.PureArray[]]$Flasharray
     )
     Begin {
       $allEsxiiSCSItargets = @()
@@ -1305,25 +1305,25 @@ function Initialize-PfaVcfWorkloadDomain {
   Param(
 
       [Parameter(Position=0,mandatory=$true)]
-      [string[]]$esxiHosts,
+      [string[]]$EsxiHosts,
 
       [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
-      [System.Management.Automation.PSCredential]$credentials,
+      [System.Management.Automation.PSCredential]$Credentials,
 
       [Parameter(Position=1,ValueFromPipeline=$True)]
-      [PurePowerShell.PureArray]$flasharray,
+      [PurePowerShell.PureArray]$Flasharray,
 
       [Parameter(Position=2,mandatory=$true)]
-      [string]$datastoreName,
+      [string]$DatastoreName,
 
       [Parameter(Position=3)]
-      [int]$sizeInGB,
+      [int]$SizeInGB,
 
       [Parameter(Position=4)]
-      [int]$sizeInTB,
+      [int]$SizeInTB,
 
       [Parameter(Position=5)]
-      [switch]$fc
+      [switch]$Fc
     
   )
   if ($fc -ne $true)
@@ -1494,32 +1494,32 @@ function New-PfaRestOperation {
   [CmdletBinding()]
   Param(
       [Parameter(Position=0,mandatory=$True)]
-      [string]$resourceType,
+      [string]$ResourceType,
 
       [Parameter(Position=1)]
-      [string]$queryFilter,
+      [string]$QueryFilter,
 
       [Parameter(Position=2)]
-      [string]$jsonBody,
+      [string]$JsonBody,
 
       [Parameter(Position=3,mandatory=$True)]
       [ValidateSet('POST','GET','DELETE','PUT','PATCH')]
-      [string]$restOperationType,
+      [string]$RestOperationType,
 
       [Parameter(ParameterSetName='REST',Position=4)]
-      [Microsoft.PowerShell.Commands.WebRequestSession]$pfaSession,
+      [Microsoft.PowerShell.Commands.WebRequestSession]$PfaSession,
 
       [Parameter(ParameterSetName='FlashArray',Position=5,ValueFromPipeline=$True)]
-      [PurePowerShell.PureArray]$flasharray,
+      [PurePowerShell.PureArray]$Flasharray,
 
       [Parameter(ParameterSetName='REST',Position=6)]
-      [string]$url,
+      [string]$Url,
 
       [Parameter(Position=7)]
       [switch]$SkipCertificateCheck,
 
       [Parameter(ParameterSetName='REST',Position=8)]
-      [string]$pfaRestVersion
+      [string]$PfaRestVersion
   )
     if ($null -ne $flasharray)
     {
@@ -1599,7 +1599,7 @@ New-Alias -Name Set-clusterPureFAiSCSI -Value Set-clusterPfaiSCSI
 
 
 #### helper functions
-function cleanup-pfaVcf{
+function Cleanup-PfaVcf{
   if ($scriptCleanupStep -lt 6)
   {
     if ($scriptCleanupStep -eq 5)

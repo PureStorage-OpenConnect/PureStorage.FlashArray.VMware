@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-function New-PfaRDM {
+function New-PfaRdm {
     <#
     .SYNOPSIS
       Creates a new Raw Device Mapping for a VM
@@ -48,21 +48,21 @@ function New-PfaRDM {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray]$flasharray,
+            [PurePowerShell.PureArray]$Flasharray,
             
             [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$vm,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$Vm,
 
             [Parameter(Position=2)]
-            [string]$volName,
+            [string]$VolName,
 
             [ValidateRange(1,63488)]
             [Parameter(ParameterSetName='GB',Position=3)]
-            [int]$sizeInGB =0,
+            [int]$SizeInGB =0,
 
             [ValidateRange(1,62)]
             [Parameter(ParameterSetName='TB',Position=4)]
-            [int]$sizeInTB = 0,
+            [int]$SizeInTB = 0,
 
             [ValidateScript({
               if ($_.Type -ne 'VMFS')
@@ -74,16 +74,16 @@ function New-PfaRDM {
               }
             })]
             [Parameter(Position=5,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
             [Parameter(Position=6,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.ScsiController]$scsiController,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.ScsiController]$ScsiController,
 
             [Parameter(ParameterSetName='Snapshot',Position=7)]
-            [string]$snapshot,
+            [string]$Snapshot,
 
             [Parameter(ParameterSetName='Snapshot',Position=7)]
-            [string]$snapshotName
+            [string]$SnapshotName
     )
     if (![string]::IsNullOrWhiteSpace($snapshotName))
     {
@@ -218,7 +218,7 @@ function New-PfaRDM {
         throw $PSItem
     }       
 }
-function Get-PfaRDMVol {
+function Get-PfaRdmVol {
     <#
     .SYNOPSIS
       Retrieves the FlashArray volume that hosts a RDM disk.
@@ -273,7 +273,7 @@ function Get-PfaRDMVol {
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
       $lun = ("naa." + $rdm.ExtensionData.Backing.LunUuid.substring(10).substring(0,32))
       if ($null -eq $flasharray)
@@ -298,7 +298,7 @@ function Get-PfaRDMVol {
       }
       throw "Specified RDM was not found on the passed in FlashArrays."
 }
-function Get-PfaConnectionFromRDM {
+function Get-PfaConnectionFromRdm {
   <#
   .SYNOPSIS
     Retrieves the FlashArray connection of a volume that hosts a RDM disk.
@@ -350,12 +350,12 @@ function Get-PfaConnectionFromRDM {
               $true
             }
           })]
-          [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
+          [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Rdm,
 
           [Parameter(Position=1,ValueFromPipeline=$True)]
-          [PurePowerShell.PureArray[]]$flasharray
+          [PurePowerShell.PureArray[]]$Flasharray
   )
-    if ($null -eq $flasharray)
+    if ($null -eq $Flasharray)
     {
       $flasharray = getAllFlashArrays 
     }
@@ -370,7 +370,7 @@ function Get-PfaConnectionFromRDM {
     }
     throw "Specified RDM was not found on the passed in FlashArrays."
 }
-function New-PfaRDMSnapshot {
+function New-PfaRdmSnapshot {
     <#
     .SYNOPSIS
       Creates a new FlashArray snapshot of one or more given RDMs
@@ -412,13 +412,13 @@ function New-PfaRDMSnapshot {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=1,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$rdm,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$Rdm,
 
             [Parameter(Position=2)]
-            [string]$suffix
+            [string]$Suffix
     )
     Begin {
         $allSnaps = @()
@@ -443,7 +443,7 @@ function New-PfaRDMSnapshot {
         return $allSnaps
     }  
 }
-function Get-PfaRDMSnapshot {
+function Get-PfaRdmSnapshot {
     <#
     .SYNOPSIS
       Retrieves snapshots of a FlashArray-based RDM
@@ -486,10 +486,10 @@ function Get-PfaRDMSnapshot {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
       if ($null -eq $flasharray)
       {
@@ -500,7 +500,7 @@ function Get-PfaRDMSnapshot {
       $snapshots = New-PfaRestOperation -resourceType "volume/$($pureVol.name)" -restOperationType GET -flasharray $fa -SkipCertificateCheck -queryFilter "?snap=true"
       return $snapshots
 }
-function Copy-PfaSnapshotToRDM {
+function Copy-PfaSnapshotToRdm {
     <#
     .SYNOPSIS
       Input a FlashArray RDM and a snapshot to refresh the RDM
@@ -554,13 +554,13 @@ function Copy-PfaSnapshotToRDM {
             [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=2)]
-            [string]$snapshot,
+            [string]$Snapshot,
 
             [Parameter(Position=3,mandatory=$True)]
-            [switch]$offlineConfirm
+            [switch]$OfflineConfirm
     )
         if ($offlineConfirm -ne $true)
         {
@@ -602,7 +602,7 @@ function Copy-PfaSnapshotToRDM {
         $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
         return $rdmDisk
 }
-function Set-PfaRDMCapacity {
+function Set-PfaRdmCapacity {
     <#
     .SYNOPSIS
       Resizes the RDM volume
@@ -653,24 +653,24 @@ function Set-PfaRDMCapacity {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(ParameterSetName='GB',Position=2)]
             [ValidateRange(1,63488)]
-            [int]$sizeInGB = 0,
+            [int]$SizeInGB = 0,
 
             [Parameter(ParameterSetName='TB',Position=3)]
             [ValidateRange(1,62)]
-            [int]$sizeInTB = 0,
+            [int]$SizeInTB = 0,
 
             [Parameter(Position=4)]
-            [switch]$truncate,
+            [switch]$Truncate,
 
             [Parameter(Position=5,mandatory=$True)]
-            [switch]$offlineConfirm
+            [switch]$OfflineConfirm
     )
     if ($offlineConfirm -ne $true)
     {
@@ -724,7 +724,7 @@ function Set-PfaRDMCapacity {
     $rdmDisk = $vm |Get-harddisk |where-object {$_.DiskType -eq "RawPhysical"}|  where-object {$null -ne $_.extensiondata.backing.lunuuid} |Where-Object {("naa." + $_.ExtensionData.Backing.LunUuid.substring(10).substring(0,32)) -eq $newNAA}
     return $rdmDisk
 }
-function Remove-PfaRDM {
+function Remove-PfaRdm {
     <#
     .SYNOPSIS
       Removes one or more RDM volumes
@@ -759,10 +759,10 @@ function Remove-PfaRDM {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$rdm,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$Rdm,
 
             [Parameter(Position=1)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
     Begin {
         $destroyedVols = @()
@@ -818,7 +818,7 @@ function Remove-PfaRDM {
         return $destroyedVols
     }  
 }
-function Convert-PfaRDMToVvol {
+function Convert-PfaRdmToVvol {
     <#
     .SYNOPSIS
       Converts a RDM to a VVol
@@ -862,10 +862,10 @@ function Convert-PfaRDMToVvol {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$rdm,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Rdm,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
             [ValidateScript({
@@ -877,10 +877,10 @@ function Convert-PfaRDMToVvol {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
             [Parameter(Position=3)]
-            [switch]$offlineConfirm
+            [switch]$OfflineConfirm
     )
     $vm = $rdm.Parent
     if (($vm.PowerState -ne "PoweredOff") -and ($offlineConfirm -ne $true))

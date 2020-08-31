@@ -49,11 +49,11 @@ function Install-PfaVspherePlugin {
   Param(
           [Parameter(ParameterSetName='HTML',Position=0)]
           [Parameter(ParameterSetName='Custom',Position=0)]
-          [switch]$html,
+          [switch]$Html,
 
           [Parameter(ParameterSetName='Flash',Position=1)]
           [Parameter(ParameterSetName='Custom',Position=1)]
-          [switch]$flash,
+          [switch]$Flash,
 
           [ValidateScript({
             if ($_ -match '[0-9]+\.[0-9]+\.[0-9]+$')
@@ -68,7 +68,7 @@ function Install-PfaVspherePlugin {
           [Parameter(ParameterSetName='Flash',Position=2)]
           [Parameter(ParameterSetName='Version',Position=2)]
           [Parameter(ParameterSetName='Custom',Position=2,mandatory=$true)]
-          [string]$version,
+          [string]$Version,
 
           [ValidateScript({
             if ($_ -like "https://*.zip*")
@@ -80,10 +80,10 @@ function Install-PfaVspherePlugin {
             }
           })]
           [Parameter(ParameterSetName='Custom',Position=2)]
-          [string]$customSource,
+          [string]$CustomSource,
 
           [Parameter(Position=3)]
-          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$Server
       )
   if ($null -eq $server)
   {
@@ -407,19 +407,19 @@ function Get-PfaVspherePlugin {
   [CmdletBinding(DefaultParameterSetName='Hosted')]
   Param(
           [Parameter(Position=0)]
-          [switch]$html,
+          [switch]$Html,
 
           [Parameter(Position=1)]
-          [switch]$flash,
+          [switch]$Flash,
 
           [Parameter(ParameterSetName='Hosted',Position=2)]
-          [string]$version,
+          [string]$Version,
 
           [Parameter(ParameterSetName='Hosted',Position=3)]
-          [switch]$previous,
+          [switch]$Previous,
 
           [Parameter(ParameterSetName='vCenter',Position=4,mandatory=$true)]
-          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$Server
       )
     if ($null -ne $server)
     {
@@ -613,13 +613,13 @@ function Uninstall-PfaVspherePlugin {
   [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High',DefaultParameterSetName='HTML')]
   Param(
           [Parameter(ParameterSetName='HTML',Position=0)]
-          [switch]$html,
+          [switch]$Html,
 
           [Parameter(ParameterSetName='Flash',Position=1)]
-          [switch]$flash,
+          [switch]$Flash,
 
           [Parameter(Position=2)]
-          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$server
+          [VMware.VimAutomation.ViCore.Types.V1.VIServer[]]$Server
   )
   if ($null -eq $server)
   {
@@ -747,64 +747,64 @@ function Deploy-PfaAppliance {
   Param(
 
       [Parameter(Position=0,mandatory=$true)]
-      [string]$vmName,
+      [string]$VmName,
 
       [Parameter(ParameterSetName='StaticHost',Position=1,ValueFromPipeline=$True,mandatory=$true)]
       [Parameter(ParameterSetName='DHCPHost',Position=1,ValueFromPipeline=$True,mandatory=$true)]
-      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$vmHost,
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VMHost]$VmHost,
 
       [Parameter(Position=2,mandatory=$true)]
-      [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+      [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
       [Parameter(Position=3,mandatory=$true)]
-      [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroupBase]$portGroup,
+      [VMware.VimAutomation.ViCore.Types.V1.Host.Networking.VirtualPortGroupBase]$PortGroup,
 
       [Parameter(ParameterSetName='StaticCluster',Position=4,mandatory=$true,ValueFromPipeline=$True)]
       [Parameter(ParameterSetName='DHCPCluster',Position=4,mandatory=$true,ValueFromPipeline=$True)]
-      [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
       [Parameter(ParameterSetName='DHCPCluster',Position=5)]
       [Parameter(ParameterSetName='DHCPHost',Position=5)]
-      [switch]$dhcp,
+      [switch]$Dhcp,
 
       [Parameter(Position=6,mandatory=$true)]
-      [string]$authorizationKey,
+      [string]$AuthorizationKey,
 
       [Parameter(ParameterSetName='StaticCluster',Position=7,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=7,mandatory=$true)]
-      [string]$ipAddress,
+      [string]$IpAddress,
 
       [Parameter(ParameterSetName='StaticCluster',Position=8,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=8,mandatory=$true)]
-      [string]$netmask,
+      [string]$Netmask,
 
       [Parameter(ParameterSetName='StaticCluster',Position=9,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=9,mandatory=$true)]
-      [string]$gateway,
+      [string]$Gateway,
 
       [Parameter(ParameterSetName='StaticCluster',Position=10,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=10,mandatory=$true)]
-      [string]$dnsPrimary,
+      [string]$DnsPrimary,
 
       [Parameter(ParameterSetName='StaticCluster',Position=11,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=11,mandatory=$true)]
-      [string]$dnsSecondary,
+      [string]$DnsSecondary,
 
       [Parameter(ParameterSetName='StaticCluster',Position=12,mandatory=$true)]
       [Parameter(ParameterSetName='StaticHost',Position=12,mandatory=$true)]
-      [string]$hostName,
+      [string]$HostName,
 
       [Parameter(Position=13)]
-      [string]$ovaLocation,
+      [string]$OvaLocation,
 
       [Parameter(Position=14)]
-      [SecureString]$ovaPassword,
+      [SecureString]$OvaPassword,
 
       [Parameter(Position=15)]
-      [int32]$passwordChangeWait = 60,
+      [int32]$PasswordChangeWait = 60,
 
       [Parameter(Position=16)]
-      [switch]$silent
+      [switch]$Silent
   )
     $ErrorActionPreference = "stop"
     $vCenterVersion = $Global:DefaultVIServer | Select-Object Version
@@ -974,10 +974,10 @@ function Get-PfaAppliance {
   [CmdletBinding()]
   Param(
       [Parameter(Position=0,ValueFromPipeline=$True)]
-      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine[]]$vm,
+      [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine[]]$Vm,
 
       [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
-      [System.Management.Automation.PSCredential]$applianceCredentials  
+      [System.Management.Automation.PSCredential]$ApplianceCredentials  
   )
   if ($applianceCredentials.UserName -notlike "pureuser")
   {

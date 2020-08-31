@@ -42,7 +42,7 @@ function Update-PfaVvolVmVolumeGroup {
     [CmdletBinding()]
     Param(
             [Parameter(ParameterSetName='VM',Position=0,ValueFromPipeline=$True,mandatory=$true)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine[]]$vm,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine[]]$Vm,
 
             [Parameter(ParameterSetName='Datastore',Position=1,ValueFromPipeline=$True,mandatory=$true)]
             [ValidateScript({
@@ -58,13 +58,13 @@ function Update-PfaVvolVmVolumeGroup {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(ParameterSetName='VM',Position=3)]
-            [String]$volumeGroupName
+            [String]$VolumeGroupName
     )
     $volumeFinalNames = @()
     if ($null -ne $datastore)
@@ -196,10 +196,10 @@ function Get-PfaVvolVol{
     [CmdletBinding()]
     Param(
         [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
-        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$vm,
+        [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$Vm,
 
         [Parameter(Position=1,ValueFromPipeline=$True,mandatory=$true)]
-        [PurePowerShell.PureArray]$flasharray
+        [PurePowerShell.PureArray]$Flasharray
     )
     $arraySerial = (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
     $datastore = $vm |Get-Datastore |Where-Object {$_.Type -eq 'VVOL'} |Where-Object {$_.ExtensionData.Info.VvolDS.StorageArray[0].uuid.Substring(16) -eq $arraySerial}
@@ -263,7 +263,7 @@ function Get-VvolUuidFromVmdk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$vmdk
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$Vmdk
     )
     Begin {
         $allUuids = @()
@@ -322,10 +322,10 @@ function Get-PfaVolumeNameFromVvolUuid{
   [CmdletBinding()]
   Param(
           [Parameter(Position=0,mandatory=$true)]
-          [string]$vvolUUID,
+          [string]$VvolUUID,
 
           [Parameter(Position=1,ValueFromPipeline=$True)]
-          [PurePowerShell.PureArray[]]$flasharray
+          [PurePowerShell.PureArray[]]$Flasharray
   )
   Begin {
       $ErrorActionPreference = "stop"
@@ -394,10 +394,10 @@ function Get-PfaSnapshotFromVvolVmdk {
     [CmdletBinding()]
     Param(      
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$vmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Vmdk,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
@@ -446,13 +446,13 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$targetVm,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$TargetVm,
 
             [Parameter(Position=1,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$vmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Vmdk,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
@@ -505,13 +505,13 @@ function Copy-PfaSnapshotToExistingVvolVmdk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$true)]
-            [string]$snapshotName,
+            [string]$SnapshotName,
 
             [Parameter(Position=1,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$vmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$Vmdk,
 
             [Parameter(Position=4,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
     $datastore = $vmdk |get-datastore
     if ($null -eq $flasharray)
@@ -573,13 +573,13 @@ function Copy-PfaSnapshotToNewVvolVmdk {
     [CmdletBinding(DefaultParametersetname="FlashArray")]
     Param(
             [Parameter(Position=0,mandatory=$true)]
-            [string]$snapshotName,
+            [string]$SnapshotName,
 
             [Parameter(Position=1,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$targetVm,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$TargetVm,
 
             [Parameter(ParameterSetName='FlashArray',Position=2,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray]$flasharray,
+            [PurePowerShell.PureArray]$Flasharray,
 
             [Parameter(ParameterSetName='Datastore',Position=3,ValueFromPipeline=$True,mandatory=$true)]
             [ValidateScript({
@@ -595,7 +595,7 @@ function Copy-PfaSnapshotToNewVvolVmdk {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore
     )
     if (($null -eq $flasharray) -and ($null -ne $datastore))
     {
@@ -665,13 +665,13 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$sourceVmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$SourceVmdk,
 
             [Parameter(Position=1,mandatory=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$targetVmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk]$TargetVmdk,
 
             [Parameter(Position=2,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
     $sourceDatastore = $sourceVmdk | Get-Datastore 
     $targetDatastore = $targetVmdk | Get-Datastore
@@ -713,7 +713,7 @@ function Copy-PfaVvolVmdkToExistingVvolVmdk {
             throw "The target VVol hard disk is larger than the snapshot size and VMware does not allow hard disk shrinking."
           }
         }
-        New-PfaRestOperation -resourceType "volume/$($targetFaVolume)" -restOperationType POST -flasharray $targetFlasharray -jsonBody "{`"overwrite`":true,`"source`":`"$($sourceFaVolume)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Nul
+        New-PfaRestOperation -resourceType "volume/$($targetFaVolume)" -restOperationType POST -flasharray $targetFlasharray -jsonBody "{`"overwrite`":true,`"source`":`"$($sourceFaVolume)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
     }
     else {
         throw "The source VVol VMDK and target VVol VMDK are not on the same array."
@@ -760,10 +760,10 @@ function New-PfaSnapshotOfVvolVmdk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$True,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$vmdk,
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.HardDisk[]]$Vmdk,
 
             [Parameter(Position=1)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [ValidateScript({
               if (($_ -match "^[A-Za-z][a-zA-Z0-9\-]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
@@ -775,7 +775,7 @@ function New-PfaSnapshotOfVvolVmdk {
               }
             })]
             [Parameter(Position=2)]
-            [string]$suffix
+            [string]$Suffix
     )
     Begin {
         $allSnaps = @()
@@ -794,7 +794,7 @@ function New-PfaSnapshotOfVvolVmdk {
           }
           $vvolUuid = get-vvolUuidFromHardDisk -vmdk $vmdkDisk -ErrorAction Stop
           $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid -ErrorAction Stop
-          if (($null -eq $suffix) -or ($suffix -eq ""))
+          if (![string]::IsNullOrEmpty($suffix))
           {
             $snapshot = New-PfaRestOperation -resourceType "volume" -restOperationType POST -flasharray $fa -jsonBody "{`"snap`":true,`"source`":[`"$($faVolume)`"],`"suffix`":`"$($suffix)`"}" -SkipCertificateCheck -ErrorAction Stop
           }
@@ -842,10 +842,10 @@ function Get-VmdkFromWindowsDisk {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$false,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$vm,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$Vm,
 
             [Parameter(Position=1,mandatory=$false)]
-            [string]$driveLetter
+            [string]$DriveLetter
     )
     if ($null -eq $vm)
     {
@@ -932,14 +932,14 @@ function New-PfaVasaProvider {
   [CmdletBinding(DefaultParameterSetName="FlashArrays")]
   Param(
           [Parameter(ParameterSetName='FlashArrays',Position=0,ValueFromPipeline=$True)]
-          [PurePowerShell.PureArray[]]$flasharray,
+          [PurePowerShell.PureArray[]]$Flasharray,
 
           [Parameter(ParameterSetName='AllFlashArrays',Position=1,ValueFromPipeline=$True,mandatory=$true)]
           [Parameter(ParameterSetName='FlashArrays',Position=1,ValueFromPipeline=$True,mandatory=$true)]
-          [System.Management.Automation.PSCredential]$credentials,
+          [System.Management.Automation.PSCredential]$Credentials,
 
           [Parameter(ParameterSetName='AllFlashArrays',Position=2,mandatory=$true)]
-          [switch]$allFlashArrays
+          [switch]$AllFlashArrays
   )
   if ($null -eq $flasharray)
   {
@@ -963,7 +963,7 @@ function New-PfaVasaProvider {
   foreach ($faConnection in $fa) 
   {
       $mgmtIPs = New-PfaRestOperation -resourceType network -restOperationType GET -flasharray $faConnection -SkipCertificateCheck |Where-Object {$_.name -like "*eth0"} 
-      $arrayname = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
+      $arrayname = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $faConnection -SkipCertificateCheck
       $ctnum = 0
       foreach ($mgmtIP in $mgmtIPs)
       {
@@ -1006,18 +1006,22 @@ function New-PfaVasaProvider {
 function Get-PfaVasaProvider {
   <#
   .SYNOPSIS
-    Returns the active VASA Provider for a given FlashArray from a vCenter.
+    Returns the active VASA Provider for a given FlashArray from a vCenter or all Pure Storage active VASA Providers.
   .DESCRIPTION
-    Returns the active VASA Provider for a given FlashArray from a vCenter.
+    Returns the active VASA Provider for a given FlashArray from a vCenter or all Pure Storage active VASA Providers.
   .INPUTS
     FlashArray connection
   .OUTPUTS
-    Returns the VASA Provider
+    Returns the Pure Storage VASA Provider(s)
   .EXAMPLE
     PS C:\ New-PfaConnection -endpoint flasharray-420-1.purecloud.com -credentials (get-credential) -DefaultArray
     PS C:\ Get-PfaVasaProvider -flasharray $Global:DefaultFlashArray
 
     Connect to a FlashArray and return the current active VASA Provider for that FlashArray.
+  .EXAMPLE
+    PS C:\ Get-PfaVasaProvider 
+
+    Returns all active VASA Providers.
   .NOTES
     Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
@@ -1035,9 +1039,13 @@ function Get-PfaVasaProvider {
 
   [CmdletBinding()]
   Param(
-          [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
-          [PurePowerShell.PureArray]$flasharray
+          [Parameter(Position=0,ValueFromPipeline=$True)]
+          [PurePowerShell.PureArray]$Flasharray
       )
+      if ($null -eq $flasharray)
+      {
+        return (Get-VasaProvider |Where-Object {$_.Namespace -eq "com.purestorage"})
+      }
       $faID = "com.purestorage:" + (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
       try {
         $vp = (Get-VasaStorageArray -Id $faid -ErrorAction Stop).provider
@@ -1085,7 +1093,7 @@ function Remove-PfaVasaProvider {
   [CmdletBinding(SupportsShouldProcess=$true,ConfirmImpact='High')]
   Param(
           [Parameter(Position=0,ValueFromPipeline=$True,mandatory=$true)]
-          [PurePowerShell.PureArray]$flasharray
+          [PurePowerShell.PureArray]$Flasharray
       )
       $moreProviders = $true
       $vasaProvider = $null
@@ -1151,11 +1159,11 @@ function Mount-PfaVvolDatastore {
   [CmdletBinding(DefaultParameterSetName="FlashArray")]
   Param(
           [Parameter(ParameterSetName='FlashArray',Position=0,ValueFromPipeline=$True)]
-          [PurePowerShell.PureArray]$flasharray,
+          [PurePowerShell.PureArray]$Flasharray,
 
           [Parameter(ParameterSetName='FlashArray',Position=1)]
           [Parameter(ParameterSetName='VASA',Position=1)]
-          [string]$datastoreName,
+          [string]$DatastoreName,
 
           [Parameter(ParameterSetName='Datastore',Position=2,ValueFromPipeline=$True)]
           [ValidateScript({
@@ -1171,13 +1179,13 @@ function Mount-PfaVvolDatastore {
               $true
             }
           })]
-          [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+          [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
           [Parameter(Position=3,mandatory=$true,ValueFromPipeline=$True)]
-          [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+          [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
           [Parameter(Position=4)]
-          [string]$protocolEndpoint,
+          [string]$ProtocolEndpoint,
 
           [Parameter(ParameterSetName='VASA',Position=5,ValueFromPipeline=$True)]
           [ValidateScript({
@@ -1189,7 +1197,7 @@ function Mount-PfaVvolDatastore {
               $true
             }
           })]
-          [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray]$vasaArray
+          [VMware.VimAutomation.Storage.Types.V1.Sms.VasaStorageArray]$VasaArray
       )
       if ($null -ne $datastore) 
       {
@@ -1207,6 +1215,21 @@ function Mount-PfaVvolDatastore {
       {
         $needToCalculateScID = $True
         $arrayID = $vasaArray.id
+        $fas = getAllFlashArrays
+        foreach ($faTest in $fas) {
+          $pfaID = "com.purestorage:" + (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $faTest -SkipCertificateCheck).id
+          if ($arrayID -eq $pfaID)
+          {
+            $flasharray = $faTest
+            break
+          }
+        }
+      }
+      if ([string]::IsNullOrWhiteSpace($arrayID))
+      {
+        $flasharray = checkDefaultFlashArray
+        $arrayID = "com.purestorage:" + (New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck).id
+        $needToCalculateScID = $True
       }
       $esxiHosts = $cluster |Get-VMHost
       #find array OUI
@@ -1230,6 +1253,7 @@ function Mount-PfaVvolDatastore {
           $scId = $scId.Replace("-","")
           $scId = "vvol:" + $scId.Insert(16,"-")
         }
+        Write-Debug $scId
       if ("" -eq $datastoreName)
       {
         $datastoreExists = get-datastore |Where-Object {$_.Type -eq "VVol"} |Where-Object {$_.ExtensionData.Info.VVolds.Scid -eq $scId}
@@ -1250,6 +1274,7 @@ function Mount-PfaVvolDatastore {
         $foundPE = $false
         $esxcli = $esxi |Get-EsxCli -v2
         $hostProtocolEndpoint = $esxcli.storage.core.device.list.invoke() |where-object {$_.IsVVOLPE -eq $true}
+        Write-Debug $hostProtocolEndpoint
         foreach ($hostPE in $hostProtocolEndpoint)
         {
           $peID = $hostPE.Device.Substring(12,24)
@@ -1271,7 +1296,10 @@ function Mount-PfaVvolDatastore {
             else 
             { 
                 try {
-                  $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+                  if ($null -ne $datastore)
+                  {
+                    $fa = get-PfaConnectionOfDatastore -datastore $datastore -ErrorAction Stop
+                  }
                 }
                 Catch 
                 {
@@ -1279,6 +1307,10 @@ function Mount-PfaVvolDatastore {
                   {
                       throw "No protocol endpoints found on the host $($esxi.name) for this array. Attempt to provision a PE failed as no valid PowerShell connections found for the array. Please either provision the protocol endpoint or connect the array with new-pfaconnection."
                   }
+                }
+                if ($null -ne $vasaArray)
+                {
+                  throw "No PE found, so it needs to be created and connected. This required an authenticated FlashArray and none was found for passed in VASA array. Use new-pfaconnection to connect the appropriate FlashArray."
                 }
             }
           }
@@ -1356,7 +1388,6 @@ function Mount-PfaVvolDatastore {
       }
       return $datastore
 }
-
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)
     {

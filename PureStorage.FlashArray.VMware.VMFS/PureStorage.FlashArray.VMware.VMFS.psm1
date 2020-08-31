@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-function Get-PfaVMFSVol {
+function Get-PfaVmfsVol {
     <#
     .SYNOPSIS
       Retrieves the FlashArray volume that hosts a VMFS datastore.
@@ -51,10 +51,10 @@ function Get-PfaVMFSVol {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray
+            [PurePowerShell.PureArray[]]$Flasharray
     )
 
     if ($null -eq $flasharray)
@@ -116,10 +116,10 @@ function New-PfaVmfs {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$true)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$cluster,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster]$Cluster,
 
             [Parameter(Position=1,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(ParameterSetName='GB',Position=2,mandatory=$true)]
             [Parameter(ParameterSetName='TB',Position=2,mandatory=$true)]
@@ -133,18 +133,18 @@ function New-PfaVmfs {
                 throw "The name must be no more than 63 characters, start with a letter, and consist of only numbers, letters, and dashes."
               }
             })]
-            [string]$volName,
+            [string]$VolName,
 
             [ValidateRange(1,63488)]
             [Parameter(ParameterSetName='GB',Position=3)]
-            [int]$sizeInGB,
+            [int]$SizeInGB,
 
             [ValidateRange(1,62)]
             [Parameter(ParameterSetName='TB',Position=4)]
-            [int]$sizeInTB,
+            [int]$SizeInTB,
 
             [Parameter(ParameterSetName='Snapshot',Position=5,mandatory=$true)]
-            [string]$snapName
+            [string]$SnapName
     )
     Begin {
         if ($sizeInGB -ne 0) {
@@ -306,10 +306,10 @@ function Add-PfaVmfsToCluster {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,mandatory=$true,ValueFromPipeline=$True)]
-            [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster[]]$cluster,
+            [VMware.VimAutomation.ViCore.Types.V1.Inventory.Cluster[]]$Cluster,
 
             [Parameter(Position=1)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=2,mandatory=$true)]
             [ValidateScript({
@@ -321,7 +321,7 @@ function Add-PfaVmfsToCluster {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore
     )
     Begin {
         $faConnections = @()
@@ -405,7 +405,7 @@ function Set-PfaVmfsCapacity {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
             [ValidateScript({
@@ -417,15 +417,15 @@ function Set-PfaVmfsCapacity {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore,
 
             [ValidateRange(1,63488)]
             [Parameter(ParameterSetName='GB',Position=2,mandatory=$true)]
-            [int]$sizeInGB,
+            [int]$SizeInGB,
 
             [ValidateRange(1,62)]
             [Parameter(ParameterSetName='TB',Position=3,mandatory=$true)]
-            [int]$sizeInTB
+            [int]$SizeInTB
     )
    if ($sizeInGB -ne 0) {
         $volSize = $sizeInGB * 1024 *1024 *1024   
@@ -509,7 +509,7 @@ function Get-PfaVmfsSnapshot {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0,ValueFromPipeline=$True)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
             [ValidateScript({
@@ -521,7 +521,7 @@ function Get-PfaVmfsSnapshot {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$datastore
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore]$Datastore
     )
     if ($null -eq $flasharray)
     {
@@ -585,10 +585,9 @@ function New-PfaVmfsSnapshot {
     [CmdletBinding()]
     Param(
             [Parameter(Position=0)]
-            [PurePowerShell.PureArray[]]$flasharray,
+            [PurePowerShell.PureArray[]]$Flasharray,
 
             [Parameter(ParameterSetName='datastore',Position=1,mandatory=$true,ValueFromPipeline=$True)]
-            [Parameter(ParameterSetName='snapname',Position=1,mandatory=$true,ValueFromPipeline=$True)]
             [Parameter(ParameterSetName='suffix',Position=1,mandatory=$true,ValueFromPipeline=$True)]
             [ValidateScript({
               if ($_.Type -ne 'VMFS')
@@ -599,19 +598,7 @@ function New-PfaVmfsSnapshot {
                 $true
               }
             })]
-            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore[]]$datastore,
-
-            [ValidateScript({
-              if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
-              {
-                $true
-              }
-              else {
-                throw "Volume name must be between 1 and 63 characters (alphanumeric, _ and -) in length and begin and end with a letter or number. The name must include at least one letter, _, or -"
-              }
-            })]
-            [Parameter(ParameterSetName='snapname',Position=2,mandatory=$true)]
-            [string]$SnapName,
+            [VMware.VimAutomation.ViCore.Types.V1.DatastoreManagement.Datastore[]]$Datastore,
 
             [ValidateScript({
               if (($_ -match "^[A-Za-z][a-zA-Z0-9\-_]+[a-zA-Z0-9]$") -and ($_.length -lt 64))
@@ -627,11 +614,6 @@ function New-PfaVmfsSnapshot {
     )
     Begin 
     {
-      if ("" -ne $Snapname) 
-      {
-          Write-Warning -Message "The snapName parameter is being deprecated--please use the suffix parameter instead."  
-          $suffix = $SnapName        
-      }
       $newSnapshots = @()
     }
     Process 

@@ -83,7 +83,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Get-PfaVMFSVol','New-PfaVmfs','Add-PfaVmfsToCluster','Set-PfaVmfsCapacity','Get-PfaVmfsSnapshot','New-PfaVmfsSnapshot'
+	FunctionsToExport = 'Get-PfaVmfsVol','New-PfaVmfs','Add-PfaVmfsToCluster','Set-PfaVmfsCapacity','Get-PfaVmfsSnapshot','New-PfaVmfsSnapshot'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
