@@ -70,7 +70,7 @@
 		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="2.0.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="2.0.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.vVol";"ModuleVersion"="2.0.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="2.0.0.0"}
     )
 	

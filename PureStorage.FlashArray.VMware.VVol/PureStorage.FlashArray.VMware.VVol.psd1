@@ -3,7 +3,7 @@
 	 Created with: 	VSCode
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
-	 Filename:     	PureStorage.FlashArray.VMware.vVol.psd1
+	 Filename:     	PureStorage.FlashArray.VMware.Vvol.psd1
 	 Version:		2.0.0.0
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
@@ -26,7 +26,7 @@
 @{
 	CompatiblePSEditions = @('Desktop', 'Core')
 	# Script module or binary module file associated with this manifest.
-	RootModule = 'PureStorage.FlashArray.VMware.vVol.psm1'
+	RootModule = 'PureStorage.FlashArray.VMware.Vvol.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
 	ModuleVersion = '2.0.0.0'
