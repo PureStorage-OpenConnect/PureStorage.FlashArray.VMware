@@ -11,7 +11,7 @@ function Initialize-PfaVcfWorkloadDomain {
   .NOTES
     Version:        2.0
     Author:         Cody Hosterman https://codyhosterman.com
-    Creation Date:  08/24/2020
+    Creation Date:  10/02/2020
     Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
