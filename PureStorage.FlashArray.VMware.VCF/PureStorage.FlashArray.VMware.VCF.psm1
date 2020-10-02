@@ -3,9 +3,9 @@ function Initialize-PfaVcfWorkloadDomain {
   .SYNOPSIS
     Configures a workload domain for Pure Storage
   .DESCRIPTION
-    Connects to each ESXi host, configures initiators on the FlashArray and provisions a VMFS. If something fails it will cleanup any changes.
+    Configures FlashArray host group, provisions vVol Protocol Endpoint or VMFS datastore, configures iSCSI (if needed), preps ESXi hosts, validates and commissions hosts in VCF SDDC Manager.
   .INPUTS
-    FQDNs or IPs of each host, valid credentials, a FlashArray connection, a datastore name and size.
+    FQDNs or IPs of each host, valid credentials, a FlashArray FQDN and credentials, protocol choice, a datastore name and size OR protocol endpoint.
   .OUTPUTS
     Returns host group.
   .NOTES
@@ -15,21 +15,25 @@ function Initialize-PfaVcfWorkloadDomain {
     Purpose/Change: Core support
   .EXAMPLE
     PS C:\ $faCreds = get-credential
-    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -ignoreCertificateError -defaultArray
-    PS C:\ $creds = get-credential
-    PS C:\ Initialize-PfaVcfWorkloadDomain -esxiHosts "esxi-02.purecloud.com","esxi-04.purecloud.com" -credentials $creds -datastoreName "vcftest" -sizeInTB 16 -fc
+    PS C:\ $esxiCreds = get-credential
+    PS C:\ Initialize-PfaVcfWorkloadDomainTest -EsxiHostFqdn "esxi-02.purecloud.com","esxi-04.purecloud.com" -esxihostcredential $esxiCreds -Protocol iSCSI -Vvol -FlashArrayFqdn flasharray-m20-1 -FlashArrayCredential $facreds -vcfnetworkpool iSCSI-vVols
     
-    Creates a host group and hosts and provisions a 16 TB VMFS to the hosts over FC
+    Configures and commissions hosts for inclusion in a iSCSI vVol Principal Workload Domain.
+    .EXAMPLE
+    PS C:\ $faCreds = get-credential
+    PS C:\ $esxiCreds = get-credential
+    PS C:\ Initialize-PfaVcfWorkloadDomainTest -EsxiHostFqdn "esxi-02.purecloud.com","esxi-04.purecloud.com" -esxihostcredential $esxiCreds -FlashArrayFqdn flasharray-m20-1 -FlashArrayCredential $facreds -vcfnetworkpool iSCSI-vVols -datastoreName "vcftest" -sizeInTB 16 -Protocol fc
+    
+    Configures and commissions hosts for inclusion in a FC VMFS Principal Workload Domain.
   .EXAMPLE
     PS C:\ $faCreds = get-credential
-    PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -ignoreCertificateError -defaultArray
-    PS C:\ $creds = get-credential
+    PS C:\ $esxiCreds = get-credential
     PS C:\ $allHosts = @()
     PS C:\ Import-Csv C:\hostList.csv | ForEach-Object {$allHosts += $_.hostnames} 
-    PS C:\ Initialize-PfaVcfWorkloadDomain -esxiHosts $allHosts -credentials $creds -datastoreName "vcftest" -sizeInTB 16 -fc
+    PS C:\ Initialize-PfaVcfWorkloadDomainTest -EsxiHostFqdn $allHosts-esxihostcredential $esxiCreds -Protocol iSCSI -Vvol -FlashArrayFqdn flasharray-m20-1 -FlashArrayCredential $facreds -vcfnetworkpool iSCSI-vVols
     
-    Creates a host group and hosts and provisions a 16 TB VMFS to the hosts over FC. This takes in a csv file of ESXi host FQDNs with one csv header called hostnames
-  
+    Configures and commissions hosts for inclusion in a iSCSI vVol Principal Workload Domain using a CSV source file with a column heading of hostnames.
+
   *******Disclaimer:******************************************************
   This scripts are offered "as is" with no warranty.  While this 
   scripts is tested and working in my environment, it is recommended that you test 
