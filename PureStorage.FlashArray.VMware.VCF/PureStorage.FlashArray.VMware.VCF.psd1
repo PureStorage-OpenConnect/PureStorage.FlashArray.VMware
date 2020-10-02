@@ -3,11 +3,11 @@
 	 Created with: 	VSCode
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
-	 Filename:     	PureStorage.FlashArray.VMware.Configuration.psd1
+	 Filename:     	PureStorage.FlashArray.VMware.VCF.psd1
 	 Version:		2.0.0.0
 	 Copyright:		2020 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStorageFlashArrayVMwareConfigurationPowerShell
+	 Module Name: PureStorageFlashArrayVMwareVMFSPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -26,13 +26,13 @@
 @{
 	CompatiblePSEditions = @('Desktop', 'Core')
 	# Script module or binary module file associated with this manifest.
-	RootModule = 'PureStorage.FlashArray.VMware.Configuration.psm1'
+	RootModule = 'PureStorage.FlashArray.VMware.VCF.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
 	ModuleVersion = '2.0.0.0'
 	
 	# ID used to uniquely identify this module
-	GUID = '8f427302-6faf-42de-9f58-09276c3343cb'
+	GUID = 'd722807a-d903-490a-a1d9-418fd8d90591'
 	
 	# Author of this module
 	Author = 'Pure Storage'
@@ -44,7 +44,7 @@
 	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
-	Description = 'Pure Storage FlashArray VMware PowerShell configuration management.'
+	Description = 'Pure Storage FlashArray VMware PowerShell VMFS management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
 	PowerShellVersion = '5.1'
@@ -64,6 +64,8 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="2.0.0.0"}
+		@{"ModuleName"="PowerVCF";"ModuleVersion"="2.1.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -82,7 +84,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'New-PfaRestOperation','New-PfaConnection','Get-PfaDatastore','Get-PfaConnectionOfDatastore','New-PfaRestSession','Remove-PfaRestSession','New-PfaHostFromVmHost','Get-PfaHostFromVmHost','Get-PfaHostGroupfromVcCluster','New-PfaHostGroupfromVcCluster','Set-VmHostPfaiSCSI','Set-ClusterPfaiSCSI','get-PfaConnectionFromArrayId'
+	FunctionsToExport = 'Initialize-PfaVcfWorkloadDomain','Get-PfaVcfVasaProvider','New-PfaVcfVasaProvider'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -91,7 +93,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'new-pureflasharrayRestSession','remove-pureflasharrayRestSession','new-faHostFromVmHost','get-faHostFromVmHost','get-faHostGroupfromVcCluster','new-faHostGroupfromVcCluster','set-vmHostPureFaiSCSI','set-clusterPureFAiSCSI'
+	AliasesToExport = ''
 	
 	# List of all modules packaged with this module
 	ModuleList = @()
