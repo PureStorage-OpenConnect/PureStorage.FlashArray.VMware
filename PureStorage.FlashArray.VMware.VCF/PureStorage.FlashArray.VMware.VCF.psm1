@@ -82,12 +82,11 @@ function Initialize-PfaVcfWorkloadDomain {
   {
     throw "The cmdlet Initialize-PfaVcfWorkloadDomain is only supported with PowerShell Core (7.x or later)."
   }
-  Write-Progress -id 1 -Activity "VCF and Pure ESXi Host Commission Process" -Status "Verifying input" -PercentComplete 5
-  $vcfpools = Get-VCFNetworkPool
-  if (($vcfpools.name -contains $VcfNetworkPool) -ne $true)
+  if ($Protocol -eq "iSCSI" -and ($Vvol -ne $True))
   {
-    throw "Invalid VCF network pool ($($vcfnetworkpool)). Please verify network pools with Get-VCFNetworkPool"
+    throw "iSCSI can only be specified with vVols. VMFS can only be principal storage when deployed with Fibre Channel."
   }
+  Write-Progress -id 1 -Activity "VCF and Pure ESXi Host Commission Process" -Status "Verifying input" -PercentComplete 5
   Write-Debug -Message ($vcfpools| out-string)
   $ErrorActionPreference = "stop"
   if ($Vvol -ne $true)
@@ -109,7 +108,39 @@ function Initialize-PfaVcfWorkloadDomain {
   Write-Progress -id 1 -Activity "VCF and Pure ESXi Host Commission Process" -Status "Connecting to Resources" -PercentComplete 10
   Write-Progress -parentid 1 -Id 2 -Activity "Connecting to FlashArray" -Status "Connecting to $($FlashArrayFqdn)" -PercentComplete 50
   $flasharray = New-PfaArray -EndPoint $FlashArrayFqdn -Credentials $FlashArrayCredential -IgnoreCertificateError
+  if ($Vvol -eq $true)
+  {
+    $arrayInfo = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $flasharray -SkipCertificateCheck
+    if ($arrayInfo.version -eq "5.3.9")
+    {
+      throw "Found Purity 5.3.9--this is not a supported release for vVols with VCF. Please reach out to Pure Support to upgrade Purity to 5.3.10 or higher."
+    }
+    if (($arrayinfo.version.split(".")[0] -eq "5") -and ($arrayinfo.version.split(".")[1] -lt 3))
+    {
+      throw "Found a Purity release earlier than 5.3.x (currently at $($arrayinfo.version)). Please reach out to Pure Support to upgrade Purity to 5.3.x or higher."
+    }
+  }
   $foundProtocol = checkFaProtocol -flasharray $flasharray -protocol $Protocol -ErrorAction stop
+  $vcfpools = Get-VCFNetworkPool
+  if (($vcfpools.name -contains $VcfNetworkPool) -ne $true)
+  {
+    throw "Invalid VCF network pool ($($vcfnetworkpool)). Please verify network pools with Get-VCFNetworkPool"
+  }
+  else {
+    $vcfNetworkInfo = Get-VCFNetworkIPPool -id ($vcfpools |Where-Object {$_.name -eq $VcfNetworkPool}).id
+    Write-Debug -Message ($vcfNetworkInfo| out-string)
+    if ($foundProtocol = "iSCSI")
+    {
+      if (($vcfNetworkInfo.type -contains "iSCSI") -eq $false)
+      {
+        throw "The specified network pool $($VcfNetworkPool) does not have an iSCSI-type vLAN assigned to it. Please add one or choose a network pool that does. This is required for iSCSI-vVols deployment."
+      }
+      if (($vcfNetworkInfo.type -contains "VMOTION") -eq $false)
+      {
+        throw "The specified network pool $($VcfNetworkPool) does not have a VMOTION-type vLAN assigned to it. Please add one or choose a network pool that does. This is required for any deployment type."
+      }
+    }
+  }
   Write-Progress -parentid 1 -Id 2 -Activity "Connecting to FlashArray" -Status "Connected to $($FlashArrayFqdn)" -PercentComplete 100
   $esxiConnections = @()
   for ($i =0;$i -lt $EsxiHostFqdn.count;$i++)
@@ -248,7 +279,7 @@ function Initialize-PfaVcfWorkloadDomain {
       $hostspec | Add-Member -MemberType NoteProperty -Name storageType -value "VVOL"
     }
     else {
-      $hostspec | Add-Member -MemberType NoteProperty -Name storageType -value "FC"
+      $hostspec | Add-Member -MemberType NoteProperty -Name storageType -value "VMFS_FC"
     }
     $hostspec | Add-Member -MemberType NoteProperty -Name password -value ($EsxiHostCredential.Password |ConvertFrom-SecureString -AsPlainText)
     $hostspec | Add-Member -MemberType NoteProperty -Name networkPoolName -value $VcfNetworkPool
