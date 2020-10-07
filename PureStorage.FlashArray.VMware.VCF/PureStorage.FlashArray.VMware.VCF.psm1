@@ -120,7 +120,14 @@ function Initialize-PfaVcfWorkloadDomain {
       throw "Found a Purity release earlier than 5.3.x (currently at $($arrayinfo.version)). Please reach out to Pure Support to upgrade Purity to 5.3.x or higher."
     }
   }
-  $foundProtocol = checkFaProtocol -flasharray $flasharray -protocol $Protocol -ErrorAction stop
+  if ([string]::IsNullOrWhiteSpace($Protocol))
+  {
+    $foundProtocol = checkFaProtocol -flasharray $flasharray -ErrorAction stop
+  }
+  else {
+    $foundProtocol = checkFaProtocol -flasharray $flasharray -protocol $Protocol -ErrorAction stop
+  }
+  Write-Debug -Message $foundProtocol
   $vcfpools = Get-VCFNetworkPool
   if (($vcfpools.name -contains $VcfNetworkPool) -ne $true)
   {
@@ -129,16 +136,16 @@ function Initialize-PfaVcfWorkloadDomain {
   else {
     $vcfNetworkInfo = Get-VCFNetworkIPPool -id ($vcfpools |Where-Object {$_.name -eq $VcfNetworkPool}).id
     Write-Debug -Message ($vcfNetworkInfo| out-string)
-    if ($foundProtocol = "iSCSI")
+    if ($foundProtocol -eq "iSCSI")
     {
       if (($vcfNetworkInfo.type -contains "iSCSI") -eq $false)
       {
         throw "The specified network pool $($VcfNetworkPool) does not have an iSCSI-type vLAN assigned to it. Please add one or choose a network pool that does. This is required for iSCSI-vVols deployment."
       }
-      if (($vcfNetworkInfo.type -contains "VMOTION") -eq $false)
-      {
-        throw "The specified network pool $($VcfNetworkPool) does not have a VMOTION-type vLAN assigned to it. Please add one or choose a network pool that does. This is required for any deployment type."
-      }
+    }
+    if (($vcfNetworkInfo.type -contains "VMOTION") -eq $false)
+    {
+      throw "The specified network pool $($VcfNetworkPool) does not have a VMOTION-type vLAN assigned to it. Please add one or choose a network pool that does. This is required for any deployment type."
     }
   }
   Write-Progress -parentid 1 -Id 2 -Activity "Connecting to FlashArray" -Status "Connected to $($FlashArrayFqdn)" -PercentComplete 100
@@ -189,7 +196,7 @@ function Initialize-PfaVcfWorkloadDomain {
     }
   }
   Write-Debug -Message ($faHosts| out-string)
-  $groupName = ("vCF-WorkloadDomain-" + (get-random -Maximum 9999 -Minimum 1000))
+  $groupName = ("VCF-WorkloadDomain-" + (get-random -Maximum 9999 -Minimum 1000))
   $hostGroup = New-PfaRestOperation -resourceType "hgroup/$($groupName)" -restOperationType POST -flasharray $flasharray -SkipCertificateCheck  -ErrorAction stop
   if ($fahosts.count -gt 0)
   {
