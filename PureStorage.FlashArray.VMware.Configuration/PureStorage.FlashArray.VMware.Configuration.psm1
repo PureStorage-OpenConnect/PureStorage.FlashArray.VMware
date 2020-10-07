@@ -590,7 +590,19 @@ function New-PfaHostFromVmHost {
                           $iqnJson = ("[" + ($iqn |ConvertTo-Json) + "]")
                         }
                         Write-debug $iqnJson
-                        $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"iqnlist`":$($iqnJson)}" -ErrorAction Stop
+                        try {
+                          $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"iqnlist`":$($iqnJson)}" -ErrorAction Stop
+                        }
+                        catch {
+                          if (($PSItem.ToString() |convertfrom-json).msg -eq "Host already exists.")
+                           {
+                            $randName =  $esxi.NetworkInfo.HostName + (Get-Random -Maximum 99999 -Minimum 10000).ToString()
+                            $newFaHost = New-PfaRestOperation -resourceType host/$($randName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"iqnlist`":$($iqnJson)}" -ErrorAction Stop
+                           }
+                           else {
+                             throw ($PSItem.ToString()|convertfrom-json).msg
+                           }
+                        }
                         $majorVersion = ((New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck).version[0])
                         if ($majorVersion -ge 5)
                         {
@@ -622,10 +634,24 @@ function New-PfaHostFromVmHost {
                         $wwnsJson = ("[" + ($wwns |ConvertTo-Json) + "]")
                       }
                       Write-debug $wwnsJson
-                      $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"wwnlist`":$($wwnsJson)}" -ErrorAction Stop
+                      try {
+                        Write-Debug -Message "test1"
+                        $newFaHost = New-PfaRestOperation -resourceType host/$($esxi.NetworkInfo.HostName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"wwnlist`":$($wwnsJson)}" -ErrorAction Stop
+                      }
+                      catch {
+                        if (($PSItem.ToString() |convertfrom-json).msg -eq "Host already exists.")
+                         {
+                          $randName =  $esxi.NetworkInfo.HostName + (Get-Random -Maximum 99999 -Minimum 10000).ToString()
+                          $newFaHost = New-PfaRestOperation -resourceType host/$($randName) -restOperationType POST -flasharray $fa -SkipCertificateCheck -jsonBody "{`"wwnlist`":$($wwnsJson)}" -ErrorAction Stop
+                         }
+                         else {
+                           throw ($PSItem.ToString() |convertfrom-json).msg
+                         }
+                      }
                       $majorVersion = ((New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck).version[0])
                       if ($majorVersion -ge 5)
                       {
+                        Write-Debug -Message "test3"
                         New-PfaRestOperation -resourceType host/$($newFaHost.name) -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"personality`":`"esxi`"}" |Out-Null
                       }
                       $vmHosts += $newFaHost
