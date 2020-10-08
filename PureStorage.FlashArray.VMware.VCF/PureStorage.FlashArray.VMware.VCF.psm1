@@ -78,6 +78,7 @@ function Initialize-PfaVcfWorkloadDomain {
       [string]$VcfNetworkPool
     
   )
+  Import-Module PureStoragePowerShellSDK
   if ($psversiontable.PSEdition -ne "Core")
   {
     throw "The cmdlet Initialize-PfaVcfWorkloadDomain is only supported with PowerShell Core (7.x or later)."
@@ -263,7 +264,7 @@ function Initialize-PfaVcfWorkloadDomain {
     Write-Progress -parentid 1 -Id 2 -Activity "Registering VASA Provider with VCF SDDC Manager." -Status "Adding VASA Provider" -PercentComplete 50
     if ([string]::IsNullOrWhiteSpace($foundProvider))
     {
-      New-PfaVcfVasaProvider -arrayAddress $FlashArrayFqdn -ArrayCredential $FlashArrayCredential -Protocol $foundProtocol
+      New-PfaVcfVasaProvider -arrayAddress $FlashArrayFqdn -ArrayCredential $FlashArrayCredential -Protocol $foundProtocol |Out-Null
     }
     else {
      if ($foundProvider.storageContainers.protocolType -ne $foundProtocol)
@@ -451,7 +452,13 @@ function New-PfaVcfVasaProvider {
     $fa = New-PfaArray -EndPoint $ArrayAddress -Credentials $ArrayCredential -IgnoreCertificateError
     $mgmtIP = New-PfaRestOperation -resourceType network -restOperationType GET -flasharray $fa -SkipCertificateCheck |Where-Object {$_.name -like "CT0.eth0"}
     $arrayname = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $fa -SkipCertificateCheck
-    $foundProtocol = checkFaProtocol -flasharray $fa -protocol $Protocol -ErrorAction stop
+    if ([string]::IsNullOrWhiteSpace($Protocol))
+    {
+      $foundProtocol = checkFaProtocol -flasharray $fa -ErrorAction stop
+    }
+    else {
+      $foundProtocol = checkFaProtocol -flasharray $fa -protocol $Protocol -ErrorAction stop
+    }
     $FaName = ("$($arrayname.array_name)-CT0") 
     $VasaUrl = ("https://$($mgmtIP.address):8084/version.xml") 
     $stdPassword = ConvertFrom-SecureString $ArrayCredential.password -AsPlainText
@@ -488,7 +495,7 @@ function checkFaProtocol{
         [Parameter(Position=0,mandatory=$true)]
         [PurePowerShell.PureArray]$Flasharray,
 
-        [Parameter(Position=1,mandatory=$true)]
+        [Parameter(Position=1)]
         [string]$Protocol
     )
     $arrayname = New-PfaRestOperation -resourceType array -restOperationType GET -flasharray $Flasharray -SkipCertificateCheck
