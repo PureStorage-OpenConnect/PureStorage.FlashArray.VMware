@@ -79,6 +79,12 @@ function Initialize-PfaVcfWorkloadDomain {
     
   )
   Import-Module PureStoragePowerShellSDK
+  try {
+    Get-InstalledModule -Name PowerVCF -ErrorAction Stop |Out-Null
+  }
+  catch {
+    throw "Please install PowerVCF with install-module PowerVCF."
+  }
   if ($psversiontable.PSEdition -ne "Core")
   {
     throw "The cmdlet Initialize-PfaVcfWorkloadDomain is only supported with PowerShell Core (7.x or later)."
@@ -377,6 +383,12 @@ function Get-PfaVcfVasaProvider {
     will not be liable for any damage or loss to the system.
     ************************************************************************
     #>
+    try {
+      Get-InstalledModule -Name PowerVCF -ErrorAction Stop |Out-Null
+    }
+    catch {
+      throw "Please install PowerVCF with install-module PowerVCF."
+    }
     if ($psversiontable.PSEdition -ne "Core")
     {
       throw "The cmdlet Get-PfaVcfVasaProvider is only supported with PowerShell Core (7.x or later)."
@@ -441,6 +453,12 @@ function New-PfaVcfVasaProvider {
             [ValidateSet('iSCSI','FC')]
             [string]$Protocol
     )
+    try {
+      Get-InstalledModule -Name PowerVCF -ErrorAction Stop |Out-Null
+    }
+    catch {
+      throw "Please install PowerVCF with install-module PowerVCF."
+    }
     if ($psversiontable.PSEdition -ne "Core")
     {
       throw "The cmdlet New-PfaVcfVasaProvider is only supported with PowerShell Core (7.x or later)."
