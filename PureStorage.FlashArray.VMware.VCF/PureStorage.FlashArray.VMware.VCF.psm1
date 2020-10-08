@@ -85,6 +85,10 @@ function Initialize-PfaVcfWorkloadDomain {
   catch {
     throw "Please install PowerVCF with install-module PowerVCF."
   }
+  if ($null -eq $global:sddcManager)
+  {
+    throw "Please connect to SDDC Manager with Request-VcfToken."
+  }
   if ($psversiontable.PSEdition -ne "Core")
   {
     throw "The cmdlet Initialize-PfaVcfWorkloadDomain is only supported with PowerShell Core (7.x or later)."
@@ -94,7 +98,6 @@ function Initialize-PfaVcfWorkloadDomain {
     throw "iSCSI can only be specified with vVols. VMFS can only be principal storage when deployed with Fibre Channel."
   }
   Write-Progress -id 1 -Activity "VCF and Pure ESXi Host Commission Process" -Status "Verifying input" -PercentComplete 5
-  Write-Debug -Message ($vcfpools| out-string)
   $ErrorActionPreference = "stop"
   if ($Vvol -ne $true)
   {
@@ -136,6 +139,7 @@ function Initialize-PfaVcfWorkloadDomain {
   }
   Write-Debug -Message $foundProtocol
   $vcfpools = Get-VCFNetworkPool
+  Write-Debug -Message ($vcfpools| out-string)
   if (($vcfpools.name -contains $VcfNetworkPool) -ne $true)
   {
     throw "Invalid VCF network pool ($($vcfnetworkpool)). Please verify network pools with Get-VCFNetworkPool"
@@ -389,6 +393,10 @@ function Get-PfaVcfVasaProvider {
     catch {
       throw "Please install PowerVCF with install-module PowerVCF."
     }
+    if ($null -eq $global:sddcManager)
+    {
+      throw "Please connect to SDDC Manager with Request-VcfToken."
+    }
     if ($psversiontable.PSEdition -ne "Core")
     {
       throw "The cmdlet Get-PfaVcfVasaProvider is only supported with PowerShell Core (7.x or later)."
@@ -458,6 +466,10 @@ function New-PfaVcfVasaProvider {
     }
     catch {
       throw "Please install PowerVCF with install-module PowerVCF."
+    }
+    if ($null -eq $global:sddcManager)
+    {
+      throw "Please connect to SDDC Manager with Request-VcfToken."
     }
     if ($psversiontable.PSEdition -ne "Core")
     {
