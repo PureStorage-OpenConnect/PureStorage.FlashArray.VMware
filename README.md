@@ -1,8 +1,3 @@
-<!-- wp:heading -->
-<h2>Pure Storage VMware PowerShell Module Help Info</h2>
-<!-- /wp:heading -->
-<p><!--StartFragment--></p>
-
 <p><!--StartFragment--></p>
 
 <!-- wp:paragraph -->
@@ -10,11 +5,31 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Latest version 2.0.0.0 (August 26th, 2020)</strong></p>
+<p>The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The module is called <a href="https://www.powershellgallery.com/packages/PureStorage.FlashArray.VMware/">PureStorage.FlashArray.VMware</a>.</p>
+<p><strong>Latest version 2.1.0.1 (October 8th, 2020)</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>New Features:</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol><li>New CMDLETS:<ol><li>Get-PfaVcfVasaProvider--get all registered VASA providers in VCF SDD Manager</li><li>New-PfaVcfVasaProvider--register a new VASA provider in VCF SDD Manager</li></ol></li><li>Initialize-PfaVcfWorkloadDomain enhancements:<ol><li> Configures requirements for ESXi (enables SSH)</li><li>Configures iSCSI requirements for iSCSI deployments with vVols</li><li>vVol configuration support</li><li>VASA provider registration</li><li>Validates and commissions hosts in SDDC Manager.</li></ol></li></ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><strong>Fixed Issues:</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol><li>Support for PowerShell Core for VCF cmdlets</li><li>Fixes issue with name collision for New-PfaHostFromVmHost</li></ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><strong>Previous version 2.0.0.0 (August 26th, 2020)</strong></p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -54,7 +69,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/Cody.PureStorage.FlashArray.VMwar">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
+<p>There are two places you can install this. The best option is the <a href="https://www.powershellgallery.com/packages/Cody.PureStorage.FlashArray.VMware">PowerShell gallery</a>! This allows you to use <a href="https://docs.microsoft.com/en-us/powershell/module/powershellget/install-module?view=powershell-6">install-module</a> to automatically install the module. </p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -77,8 +92,8 @@
 <p>The module will help you connect PowerCLI commands (like get-datastore or get-vmhost) to operations you might want to do on the FlashArray. The cmdlets support pipeline input for most variables (datastores, FlashArray connections, ESXi hosts, etc.).</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6861,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/08/image-5-1024x281.png" alt="" class="wp-image-6861"/></figure>
+<!-- wp:image {"id":7023,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/10/image-9-1024x256.png" alt="" class="wp-image-7023"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
@@ -109,16 +124,16 @@
 <p>For all available commands, use<em> get-command</em>:</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6859,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/08/image-4-1024x980.png" alt="" class="wp-image-6859"/></figure>
+<!-- wp:image {"id":7024,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/10/image-10-1024x1001.png" alt="" class="wp-image-7024"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
 <p>For specifics, use <em>get-help</em> plus the function you want.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":6281,"sizeSlug":"large"} -->
-<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/01/image-4-955x1024.png" alt="" class="wp-image-6281"/></figure>
+<!-- wp:image {"id":7025,"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="https://www.codyhosterman.com/wp-content/uploads/2020/10/image-11-1024x820.png" alt="" class="wp-image-7025"/></figure>
 <!-- /wp:image -->
 
 <!-- wp:paragraph -->
