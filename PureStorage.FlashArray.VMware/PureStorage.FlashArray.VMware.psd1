@@ -4,8 +4,8 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.psd1
-	 Version:		2.1.0.0
-	 Copyright:		2020 Pure Storage, Inc.
+	 Version:		2.2.0.0
+	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwarePowerShell
 	Disclaimer
@@ -29,7 +29,7 @@
 	RootModule = ''
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.1.0.0'
+	ModuleVersion = '2.2.0.0'
 	
 	# ID used to uniquely identify this module
 	GUID = 'a38571e9-918e-4542-bebc-b5294ad4ffbb'
@@ -41,7 +41,7 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2021 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerCLI integration with Windows PowerShell.'
@@ -67,12 +67,14 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="2.0.0.1"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="2.0.0.0"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.VCF";"ModuleVersion"="2.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.VMFS";"ModuleVersion"="2.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.RDM";"ModuleVersion"="2.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Configuration";"ModuleVersion"="2.0.0.2"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="2.0.0.1"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.VCF";"ModuleVersion"="2.0.0.2"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol.Replication";"ModuleVersion"="1.0.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol.SPBM";"ModuleVersion"="1.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -113,22 +115,20 @@
 		
 		#Support for PowerShellGet galleries.
 		PSData = @{
-			
 			# Tags applied to this module. These help with module discovery in online galleries.
-			# Tags = @()
+			Tags = @("VMware","PureStorage")
 			
 			# A URL to the license for this module.
-			# LicenseUri = ''
+			LicenseUri = 'https://www.purestorage.com/content/dam/pdf/en/legal/pure-storage-plugin-end-user-license-agreement.pdf'
 			
 			# A URL to the main website for this project.
 			# ProjectUri = ''
 			
 			# A URL to an icon representing this module.
-			# IconUri = ''
+			IconUri = 'https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/Images/pslogo.png'
 			
 			# ReleaseNotes of this module
-			# ReleaseNotes = ''
-			
+			ReleaseNotes = 'https://github.com/PureStorage-OpenConnect/PureStorage.FlashArray.VMware'
 		}
 		
 	}

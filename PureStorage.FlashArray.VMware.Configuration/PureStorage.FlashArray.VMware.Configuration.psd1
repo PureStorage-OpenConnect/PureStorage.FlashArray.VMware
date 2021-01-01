@@ -4,8 +4,8 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Configuration.psd1
-	 Version:		2.0.0.1
-	 Copyright:		2020 Pure Storage, Inc.
+	 Version:		2.0.0.2
+	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareConfigurationPowerShell
 	Disclaimer
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Configuration.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.0.0.1'
+	ModuleVersion = '2.0.0.2'
 	
 	# ID used to uniquely identify this module
 	GUID = '8f427302-6faf-42de-9f58-09276c3343cb'
@@ -104,22 +104,20 @@
 		
 		#Support for PowerShellGet galleries.
 		PSData = @{
-			
 			# Tags applied to this module. These help with module discovery in online galleries.
-			# Tags = @()
+			Tags = @("VMware","PureStorage")
 			
 			# A URL to the license for this module.
-			# LicenseUri = ''
+			LicenseUri = 'https://www.purestorage.com/content/dam/pdf/en/legal/pure-storage-plugin-end-user-license-agreement.pdf'
 			
 			# A URL to the main website for this project.
 			# ProjectUri = ''
 			
 			# A URL to an icon representing this module.
-			# IconUri = ''
+			IconUri = 'https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/Images/pslogo.png'
 			
 			# ReleaseNotes of this module
-			# ReleaseNotes = ''
-			
+			ReleaseNotes = 'https://github.com/PureStorage-OpenConnect/PureStorage.FlashArray.VMware'
 		}
 		
 	}

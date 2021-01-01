@@ -228,8 +228,7 @@ function Get-PfaVvolVol{
       }
     }
     return $vVolInfos
-  }
-
+}
 function Get-VvolUuidFromVmdk {
     <#
     .SYNOPSIS
@@ -1387,6 +1386,83 @@ function Mount-PfaVvolDatastore {
         $foundDatastore = $null
       }
       return $datastore
+}
+function Get-PfaVvolStorageArray {
+  <#
+  .SYNOPSIS
+    Returns all or specified FlashArray storage array VASA objects
+  .DESCRIPTION
+    Returns all or replication-based FlashArray storage array VASA objects
+  .INPUTS
+    Nothing, FlashArray connection, FlashArray name, or FlashArray serial number.
+  .OUTPUTS
+    VASA Storage Array(s)
+  .NOTES
+    Version:        1.0
+    Author:         Cody Hosterman https://codyhosterman.com
+    Creation Date:  12/31/2020
+    Purpose/Change: Function creation
+  .EXAMPLE
+    PS C:\ Get-PfaVvolStorageArray 
+
+    Returns all Pure Storage FlashArray storage array VASA objects
+  .EXAMPLE
+    PS C:\ Get-PfaVvolStorageArray -ArraySerial 7e914d96-c90a-31e0-a495-75e8b3c300cc
+
+    Returns the FlashArray storage array VASA object for the specified array serial number.
+  .EXAMPLE
+    PS C:\ Get-PfaVvolStorageArray -ArrayName flasharray-m50-1
+
+    Returns the FlashArray storage array VASA object  for the specified array name.
+  .EXAMPLE
+    PS C:\ $fa = new-pfaConnection -endpoint flasharray-m50-1 -ignoreCertificateError -DefaultArray
+    PS C:\ Get-PfaVvolStorageArray -FlashArray $fa
+
+    Returns the FlashArray storage array VASA object for the specified FlashArray connection.
+
+    *******Disclaimer:******************************************************
+    This scripts are offered "as is" with no warranty.  While this 
+    scripts is tested and working in my environment, it is recommended that you test 
+    this script in a test lab before using in a production environment. Everyone can 
+    use the scripts/commands provided here without any written permission but I
+    will not be liable for any damage or loss to the system.
+    ************************************************************************
+    #>
+
+    [CmdletBinding(DefaultParameterSetName='Name')]
+    Param(
+          [Parameter(Position=0,ValueFromPipeline=$True,ParameterSetName='Connection')]
+          [PurePowerShell.PureArray]$Flasharray,
+  
+          [Parameter(Position=1,ParameterSetName='Name')]
+          [string]$ArrayName,
+  
+          [Parameter(Position=2,ParameterSetName='Serial')]
+          [string]$ArraySerial
+    )
+      $pureArray = Get-VasaStorageArray |Where-Object {$_.VendorID -eq "PURE"}
+      if (![string]::IsNullOrEmpty($arrayName))
+      {
+        $pureArray = $pureArray |Where-Object {$_.Name -eq $arrayName}
+      }
+      elseif (![string]::IsNullOrEmpty($arraySerial))
+      {
+        $pureArray = $pureArray  | Where-Object {$_.Id -eq "com.purestorage:$($arraySerial)"} 
+        if ($null -eq $pureArray)
+        {
+          throw "Could not find a storage array for specified serial number: $($arraySerial). Make sure its VASA providers are registered on the correct vCenter."
+        }
+      }
+      elseif ($null -ne $flasharray) 
+      {
+        $arraySerial = (Get-PfaArrayAttributes -array $flasharray).id
+        $pureArray = $pureArray  | Where-Object {$_.Id -eq "com.purestorage:$($arraySerial)"} 
+        if ($null -eq $pureArray)
+        {
+          throw "Could not find a storage array for specified FlashArray with serial number: $($arraySerial). Make sure its VASA providers are registered on the correct vCenter."
+        }
+      }
+      return $pureArray
 }
 function checkDefaultFlashArray{
     if ($null -eq $Global:DefaultFlashArray)

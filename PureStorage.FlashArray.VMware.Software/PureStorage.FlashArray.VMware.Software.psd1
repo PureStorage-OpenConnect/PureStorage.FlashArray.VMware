@@ -4,8 +4,8 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Software.psd1
-	 Version:		2.0.0.0
-	 Copyright:		2020 Pure Storage, Inc.
+	 Version:		2.0.0.1
+	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareSoftwarePowerShell
 	Disclaimer
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Software.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.0.0.0'
+	ModuleVersion = '2.0.0.1'
 	
 	# ID used to uniquely identify this module
 	GUID = '1a8ffc6d-02ae-4406-b51e-73c8d543b7ac'
@@ -41,7 +41,7 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2020 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2021 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell software management.'
@@ -105,22 +105,20 @@
 		
 		#Support for PowerShellGet galleries.
 		PSData = @{
-			
 			# Tags applied to this module. These help with module discovery in online galleries.
-			# Tags = @()
+			Tags = @("VMware","PureStorage")
 			
 			# A URL to the license for this module.
-			# LicenseUri = ''
+			LicenseUri = 'https://www.purestorage.com/content/dam/pdf/en/legal/pure-storage-plugin-end-user-license-agreement.pdf'
 			
 			# A URL to the main website for this project.
 			# ProjectUri = ''
 			
 			# A URL to an icon representing this module.
-			# IconUri = ''
+			IconUri = 'https://pure-vmware-plugin-repository.s3-us-west-1.amazonaws.com/Images/pslogo.png'
 			
 			# ReleaseNotes of this module
-			# ReleaseNotes = ''
-			
+			ReleaseNotes = 'https://github.com/PureStorage-OpenConnect/PureStorage.FlashArray.VMware'
 		}
 		
 	}

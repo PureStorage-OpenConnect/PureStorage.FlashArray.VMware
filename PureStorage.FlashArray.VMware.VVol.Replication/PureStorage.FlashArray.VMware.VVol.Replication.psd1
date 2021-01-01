@@ -3,11 +3,11 @@
 	 Created with: 	VSCode
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
-	 Filename:     	PureStorage.FlashArray.VMware.RDM.psd1
-	 Version:		2.0.0.1
+	 Filename:     	PureStorage.FlashArray.VMware.vVol.Replication.psd1
+	 Version:		1.0.0.0
 	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
-	 Module Name: PureStorageFlashArrayVMwareRDMPowerShell
+	 Module Name: PureStorageFlashArrayVMwarevVolReplicationPowerShell
 	Disclaimer
  	The sample script and documentation are provided AS IS and are not supported by 
 	the author or the author's employer, unless otherwise agreed in writing. You bear 
@@ -26,13 +26,13 @@
 @{
 	CompatiblePSEditions = @('Desktop', 'Core')
 	# Script module or binary module file associated with this manifest.
-	RootModule = 'PureStorage.FlashArray.VMware.RDM.psm1'
+	RootModule = 'PureStorage.FlashArray.VMware.vVol.Replication.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.0.0.1'
+	ModuleVersion = '1.0.0.0'
 	
 	# ID used to uniquely identify this module
-	GUID = '49e8405f-e78f-4b5d-b121-113d5ad37098'
+	GUID = 'c2e1051e-0f74-4ed7-b0b3-a70adcc306dc'
 	
 	# Author of this module
 	Author = 'Pure Storage'
@@ -41,11 +41,10 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2021
-	 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2021 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
-	Description = 'Pure Storage FlashArray VMware PowerShell RDM management.'
+	Description = 'Pure Storage FlashArray VMware PowerShell vVol Replication management.'
 	
 	# Minimum version of the Windows PowerShell engine required by this module
 	PowerShellVersion = '5.1'
@@ -64,7 +63,9 @@
 	
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
+		@{"ModuleName"="VMware.VimAutomation.Storage";"ModuleVersion"="11.3.0.0"}
 		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
@@ -83,7 +84,7 @@
 	NestedModules = @()
 	
 	# Functions to export from this module
-	FunctionsToExport = 'Convert-PfaRdmToVvol','Remove-PfaRdm','Set-PfaRdmCapacity','Copy-PfaSnapshotToRdm','Get-PfaRdmSnapshot','New-PfaRdmSnapshot','Get-PfaConnectionFromRdm','Get-PfaRdmVol','New-PfaRdm'
+	FunctionsToExport = 'Get-PfavVolReplicationGroup','Get-PfavVolReplicationGroupPartner','Get-PfavVolFaultDomain'
 	
 	# Cmdlets to export from this module
 	CmdletsToExport = '*'
@@ -92,7 +93,7 @@
 	VariablesToExport = ''
 	
 	# Aliases to export from this module
-	AliasesToExport = 'new-faVolRdm','set-faVolRDMCapacity','copy-faSnapshotToRDM','get-faVolRDMSnapshots','new-faVolRdmSnapshot','get-faVolfromRDM','remove-faVolRDM','convert-faVolRDMtoVvol','new-pfaVolRdm','set-pfaVolRDMCapacity','get-pfaVolRDMSnapshot','new-pfaVolRdmSnapshot','get-pfaVolfromRDM','remove-pfaVolRDM','convert-pfaVolRDMtoVvol'
+	AliasesToExport = ''
 	
 	# List of all modules packaged with this module
 	ModuleList = @()
