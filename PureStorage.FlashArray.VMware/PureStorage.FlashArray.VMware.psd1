@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.psd1
-	 Version:		2.2.0.0
+	 Version:		2.2.0.1
 	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwarePowerShell
@@ -29,7 +29,7 @@
 	RootModule = ''
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.2.0.0'
+	ModuleVersion = '2.2.0.1'
 	
 	# ID used to uniquely identify this module
 	GUID = 'a38571e9-918e-4542-bebc-b5294ad4ffbb'
@@ -73,7 +73,7 @@
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.1"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Software";"ModuleVersion"="2.0.0.1"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.VCF";"ModuleVersion"="2.0.0.2"}
-		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol.Replication";"ModuleVersion"="1.0.0.0"}
+		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol.Replication";"ModuleVersion"="1.0.0.1"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol.SPBM";"ModuleVersion"="1.0.0.0"}
     )
 	

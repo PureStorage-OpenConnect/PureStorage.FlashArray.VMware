@@ -174,7 +174,7 @@ function Get-PfaVvolReplicationGroup {
     Write-Debug ($pureReplicationGroups |format-list * |Out-String)
     return $pureReplicationGroups
 }
-function Get-PfaVvolReplicationGroupPartner {
+function Get-PfavVolReplicationGroupPartner {
   <#
   .SYNOPSIS
     Returns any partner FlashArray Replication Groups for a specified group.
@@ -249,7 +249,6 @@ function Get-PfaVvolReplicationGroupPartner {
         {
           if (($null -ne $faultDomain) -and ($pureReplicationGroup.faultDomain.id -eq $faultDomain.Id))
           {
-            write-host "fart"
             $groupPartners += $pureReplicationGroup
           }
           if ($null -eq $faultDomain)
@@ -259,7 +258,13 @@ function Get-PfaVvolReplicationGroupPartner {
         }
       }
     }
-    return $groupPartners
+    if ($groupPartners.count -eq 1)
+    {
+      return $groupPartners[0]
+    }
+    else {
+      return $groupPartners
+    }
   }
   else{
     $pureReplicationGroups = Get-PfaVvolReplicationGroup -source
