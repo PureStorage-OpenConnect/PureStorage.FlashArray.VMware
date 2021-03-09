@@ -1,0 +1,8 @@
+{
+    "id": "purestorage-flasharray-vmware",
+    "name": "Pure Storage SDK and PowerCLI",
+    "filter": "devops",
+    "image": "http://code.purestorage.com/images/PowerCLI.png",
+    "featured": 0,
+    "priority": 1
+}
