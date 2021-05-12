@@ -572,7 +572,7 @@ function Set-PfaVvolVmStoragePolicy {
   if ($AutoReplicationGroup -eq $true)
   {
     $FirstVMConfig = ($vm[0] |Get-HardDisk),$vm[0] |Get-SpbmEntityConfiguration
-    $FirstVMConfig = Set-SpbmEntityConfiguration -Configuration $FirstVMConfig -StoragePolicy $Policy -AutoReplicationGroup
+    $FirstVMConfig = Set-SpbmEntityConfiguration -Configuration $FirstVMConfig -StoragePolicy $Policy -AutoReplicationGroup -ErrorAction Stop
     if ($VmConfig.count -gt 1)
     {
       $VmConfig =  Set-SpbmEntityConfiguration -Configuration $VmConfig -StoragePolicy $Policy -ReplicationGroup $FirstVMConfig[0].replicationGroup

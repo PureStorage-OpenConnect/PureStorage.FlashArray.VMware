@@ -1,4 +1,5 @@
 import-module VMware.VimAutomation.Storage
+$ErrorActionPreference = "stop"
 function Update-PfaVvolVmVolumeGroup {
     <#
     .SYNOPSIS
@@ -464,9 +465,11 @@ function Copy-PfaVvolVmdkToNewVvolVmdk {
     }
     $vvolUuid = Get-VvolUuidFromVmdk -vmdk $vmdk 
     $faVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $vvolUuid 
-    $newHardDisk = New-HardDisk -Datastore $datastore -CapacityGB $vmdk.CapacityGB -VM $targetVm 
-    $newVvolUuid = get-vvolUuidFromVmdk -vmdk $newHardDisk 
-    $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid 
+    $WarningPreference = "silentlyContinue"
+    $newHardDisk = New-HardDisk -Datastore $datastore -CapacityGB $vmdk.CapacityGB -VM $targetVm -ErrorAction Stop
+    $WarningPreference = "Continue"
+    $newVvolUuid = get-vvolUuidFromVmdk -vmdk $newHardDisk -ErrorAction Stop
+    $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $fa -vvolUUID $newVvolUuid -ErrorAction Stop
     New-PfaRestOperation -resourceType "volume/$($newFaVolume)" -restOperationType POST -flasharray $fa -jsonBody "{`"overwrite`":true,`"source`":`"$($faVolume)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
     return $newHardDisk
 }
@@ -617,7 +620,9 @@ function Copy-PfaSnapshotToNewVvolVmdk {
       $datastore = $targetVm| Get-VMHost | Get-Datastore |where-object {$_.Type -eq "VVOL"} |Where-Object {$_.ExtensionData.info.vvolDS.storageArray[0].uuid.substring(16) -eq $arrayID} |Select-Object -First 1
     }
     $snapshotSize = New-PfaRestOperation -resourceType "volume/$($snapshotName)" -restOperationType GET -queryFilter "?snap=true&space=true" -flasharray $flasharray -SkipCertificateCheck
+    $WarningPreference = "silentlyContinue"
     $newHardDisk = New-HardDisk -Datastore $datastore -CapacityKB ($snapshotSize.size / 1024 ) -VM $targetVm 
+    $WarningPreference = "Continue"
     $newVvolUuid = get-vvolUuidFromHardDisk -vmdk $newHardDisk 
     $newFaVolume = get-PfaVolumeNameFromVvolUuid -flasharray $flasharray -vvolUUID $newVvolUuid 
     New-PfaRestOperation -resourceType "volume/$($newFaVolume)" -restOperationType POST -flasharray $flasharray -jsonBody "{`"overwrite`":true,`"source`":`"$($snapshotName)`"}" -SkipCertificateCheck -ErrorAction Stop |Out-Null
