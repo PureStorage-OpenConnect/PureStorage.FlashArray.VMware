@@ -104,6 +104,9 @@ function Install-PfaVspherePlugin {
     {
       throw "You must specify either flash or HTML, not both, and not neither."
     }
+    else {
+      $pure1 = $false
+    }
   }
   else {
     $pure1 = $true
