@@ -19,21 +19,21 @@ function New-PfaRdm {
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -defaultArray
       PS C:\ $vm = get-vm myVM
       PS C:\ New-PfaRDM -vm $vm -sizeInTb 1
-      
+
       Creates a new 1 TB RDM and presents it to a VM on the default FlashArray.
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
       PS C:\ $vm = get-vm myVM
       PS C:\ New-PfaRDM -vm $vm -sizeInTb 1 -flasharray $fa
-      
+
       Creates a new 1 TB RDM and presents it to a VM on the specified FlashArray.
     .EXAMPLE
       PS C:\ $faCreds = get-credential
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials $faCreds -nondefaultArray
       PS C:\ $vm = get-vm myVM
       PS C:\ New-PfaRDM -vm $vm -flasharray $fa -snapshot vol1.mySnapshot
-      
+
       Creates a RDM from the volume snapshot vol1.mySnapshot and presents it to a VM on the specified FlashArray.
 
     *******Disclaimer:******************************************************
@@ -49,7 +49,7 @@ function New-PfaRdm {
     Param(
             [Parameter(Position=0,ValueFromPipeline=$True)]
             [PurePowerShell.PureArray]$Flasharray,
-            
+
             [Parameter(Position=1,mandatory=$true,ValueFromPipeline=$True)]
             [VMware.VimAutomation.ViCore.Types.V1.Inventory.VirtualMachine]$Vm,
 
@@ -95,11 +95,11 @@ function New-PfaRdm {
     {
       $flasharray = checkDefaultFlashArray
     }
-    if ($sizeInGB -ne 0) 
+    if ($sizeInGB -ne 0)
     {
-      $volSize = $sizeInGB * 1024 *1024 *1024   
+      $volSize = $sizeInGB * 1024 *1024 *1024
     }
-    else 
+    else
     {
       $volSize = $sizeInTB * 1024 *1024 *1024 * 1024
     }
@@ -135,7 +135,7 @@ function New-PfaRdm {
     $cluster = $vm | get-cluster
     if ($null -eq $cluster)
     {
-        throw "This VM is not on a host in a cluster. Non-clustered hosts are not supported by this script."     
+        throw "This VM is not on a host in a cluster. Non-clustered hosts are not supported by this script."
     }
     $hostGroup = $cluster | get-pfaHostGroupfromVcCluster -flasharray $flasharray -ErrorAction Stop
     if (![string]::IsNullOrWhiteSpace($snapshot))
@@ -157,6 +157,14 @@ function New-PfaRdm {
         }
     }
     $newNAA =  "naa.624a9370" + $newVol.serial.toLower()
+    foreach ($esxiHost in $esxiHosts)
+    {
+      $esxcli = Get-EsxCli -VMHost $ESXiHost -V2
+      $args1 =  $esxcli.storage.core.device.setconfig.CreateArgs()
+      $args1.device = $newNAA
+      $args1.perenniallyreserved = $true
+      $esxcli.storage.core.device.setconfig.Invoke($args1)
+    }
     if($null -eq $scsiController)
     {
         $controller = $vm |Get-ScsiController 
@@ -182,7 +190,7 @@ function New-PfaRdm {
             }
             else 
             {
-                $lsiSCSIs = $vm |Get-ScsiController 
+                $lsiSCSIs = $vm |Get-ScsiController
                 if ($lsiSCSIs.count -gt 1)
                 {
                     $lsiDisksHigh = 1000
@@ -201,7 +209,7 @@ function New-PfaRdm {
                     $controller = $lsiSCSIs
                 }
             }
-        }   
+        }
     } 
     else {
         $controller = $scsiController
@@ -216,7 +224,7 @@ function New-PfaRdm {
         New-PfaRestOperation -resourceType "volume/$($newvol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck |Out-Null
         New-PfaRestOperation -resourceType "volume/$($newvol.name)" -restOperationType DELETE -flasharray $flasharray -SkipCertificateCheck -queryFilter "?eradicate=true" |Out-Null
         throw $PSItem
-    }       
+    }
 }
 function Get-PfaRdmVol {
     <#
