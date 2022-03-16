@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.RDM.psd1
-	 Version:		2.0.1.0
+	 Version:		2.0.1.1
 	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwareRDMPowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.RDM.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.0.1.0'
+	ModuleVersion = '2.0.1.1'
 	
 	# ID used to uniquely identify this module
 	GUID = '49e8405f-e78f-4b5d-b121-113d5ad37098'
@@ -64,7 +64,7 @@
 	
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
-		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.19.37.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module

@@ -63,7 +63,7 @@
 	
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
-		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.19.37.0"}
     )
 	
 	# Assemblies that must be loaded prior to importing this module
