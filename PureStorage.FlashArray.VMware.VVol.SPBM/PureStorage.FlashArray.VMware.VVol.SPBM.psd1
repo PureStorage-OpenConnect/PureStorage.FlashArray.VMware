@@ -4,7 +4,7 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.vVol.SPBM.psd1
-	 Version:		1.0.0.1
+	 Version:		1.0.0.2
 	 Copyright:		2021 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwarevVolSPBMPowerShell
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.vVol.SPBM.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '1.0.0.1'
+	ModuleVersion = '1.0.0.2'
 	
 	# ID used to uniquely identify this module
 	GUID = '58ac2099-cb36-4e79-afad-bea875e6c559'
@@ -41,7 +41,7 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2021 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2022 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell vVol SPBM management.'
@@ -64,7 +64,7 @@
 	# Modules that must be imported into the global environment prior to importing this module
 	RequiredModules = @(
 		@{"ModuleName"="VMware.VimAutomation.Storage";"ModuleVersion"="11.3.0.0"}
-		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.13.1.12"}
+		@{"ModuleName"="PureStoragePowerShellSDK";"ModuleVersion"="1.19.37.0"}
 		@{"ModuleName"="PureStorage.FlashArray.VMware.Vvol";"ModuleVersion"="2.0.0.0"}
     )
 	
