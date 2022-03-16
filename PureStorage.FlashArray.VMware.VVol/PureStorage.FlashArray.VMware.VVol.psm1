@@ -175,9 +175,9 @@ function Get-PfaVvolVol{
     .OUTPUTS
       Returns the FA volume and volume group name(s)
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  05/26/2019
+      Creation Date:  03/15/2022
       Purpose/Change: Updated for new connection mgmt
     .EXAMPLE
       PS C:\ $fa = New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
@@ -211,7 +211,14 @@ function Get-PfaVvolVol{
     else 
     {
       $vmId = $vm.ExtensionData.Config.InstanceUuid   
-      $vVolVolumes = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $flasharray -SkipCertificateCheck).Name |Select-Object -Unique
+      if ($flasharray.apiversion.split(".")[1] -gt 18)
+      {
+        $vVolVolumes = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&namespace=vasa-integration.purestorage.com&filter=value=`'$($vmId)`'" -flasharray $flasharray -SkipCertificateCheck).Name |Select-Object -Unique
+      }
+      else
+      {
+        $vVolVolumes = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $flasharray -SkipCertificateCheck).Name |Select-Object -Unique
+      }
       $vVolInfos = @() 
       foreach ($vVolVolume in $vVolVolumes) 
       {

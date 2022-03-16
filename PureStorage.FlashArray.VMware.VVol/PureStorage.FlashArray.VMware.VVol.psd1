@@ -4,8 +4,8 @@
 	 Created by:   	Cody Hosterman
 	 Organization: 	Pure Storage, Inc.
 	 Filename:     	PureStorage.FlashArray.VMware.Vvol.psd1
-	 Version:		2.0.0.2
-	 Copyright:		2021 Pure Storage, Inc.
+	 Version:		2.0.1.0
+	 Copyright:		2022 Pure Storage, Inc.
 	-------------------------------------------------------------------------
 	 Module Name: PureStorageFlashArrayVMwarevVolPowerShell
 	Disclaimer
@@ -29,7 +29,7 @@
 	RootModule = 'PureStorage.FlashArray.VMware.Vvol.psm1'
 	
 	# Version number of this module; major.minor[.build[.revision]]
-	ModuleVersion = '2.0.0.2'
+	ModuleVersion = '2.0.1.0'
 	
 	# ID used to uniquely identify this module
 	GUID = '105e97db-98b4-41be-be35-17ba25a1ede5'
@@ -41,7 +41,7 @@
 	CompanyName = 'Pure Storage, Inc.'
 	
 	# Copyright statement for this module
-	Copyright = '(c) 2021 Pure Storage, Inc. All rights reserved.'
+	Copyright = '(c) 2022 Pure Storage, Inc. All rights reserved.'
 	
 	# Description of the functionality provided by this module
 	Description = 'Pure Storage FlashArray VMware PowerShell vVol management.'
