@@ -11,10 +11,10 @@ function Update-PfaVvolVmVolumeGroup {
     .OUTPUTS
       Returns the FlashArray volume names of the input VM.
     .NOTES
-      Version:        2.0
+      Version:        2.1
       Author:         Cody Hosterman https://codyhosterman.com
-      Creation Date:  08/26/2020
-      Purpose/Change: Core support
+      Creation Date:  03/17/2022
+      Purpose/Change: 1.19 support
     .EXAMPLE
       PS C:\ New-PfaConnection -endpoint flasharray-m20-2 -credentials (get-credential) -defaultArray 
       PS C:\  Update-PfaVvolVmVolumeGroup -vm (get-vm myVM)
@@ -155,7 +155,14 @@ function Update-PfaVvolVmVolumeGroup {
                     New-PfaRestOperation -resourceType "volume/$($vVolInfo.Volume)" -restOperationType PUT -flasharray $fa -SkipCertificateCheck -jsonBody "{`"container`":`"$($volumeGroupName)`"}" |Out-Null
                   }
                 }
-                $volumesAfterMove = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $fa -SkipCertificateCheck).Name |Select-Object -Unique
+                if ($flasharray.apiversion.split(".")[1] -gt 18)
+                {
+                  $volumesAfterMove = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&namespace=vasa-integration.purestorage.com&filter=value=`'$($vmId)`'" -flasharray $fa -SkipCertificateCheck).Name |Select-Object -Unique
+                }
+                else
+                {
+                  $volumesAfterMove = (New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vmId)`'" -flasharray $fa -SkipCertificateCheck).Name |Select-Object -Unique
+                }
                 foreach ($volumeAfterMove in $volumesAfterMove) {
                   $volumeFinalNames += $volumeAfterMove
                 }
@@ -345,7 +352,14 @@ function Get-PfaVolumeNameFromVvolUuid{
       }
       foreach ($fa in $flasharray)
       {
-          $volumeTags = New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vvolUUID)`'" -flasharray $fa -SkipCertificateCheck
+          if ($flasharray.apiversion.split(".")[1] -gt 18)
+          {
+            $volumeTags = New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&namespace=vasa-integration.purestorage.com&filter=value=`'$($vvolUUID)`'" -flasharray $fa -SkipCertificateCheck
+          }
+          else
+          {
+            $volumeTags = New-PfaRestOperation -resourceType "volume" -restOperationType GET -queryFilter "?tags=true&filter=value=`'$($vvolUUID)`'" -flasharray $fa -SkipCertificateCheck
+          }
           $volumeName = $volumeTags |where-object {$_.key -eq "PURE_VVOL_ID"}
           if ($null -eq $volumeName)
           {
